@@ -37,6 +37,14 @@ class AuthController extends Controller
                 ->onlyInput('email');
         }
 
+        if (!Auth::user()->is_active) {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'This account has been deactivated.'])
+                ->onlyInput('email');
+        }
+
         RateLimiter::clear($this->throttleKey($request));
 
         $request->session()->regenerate();

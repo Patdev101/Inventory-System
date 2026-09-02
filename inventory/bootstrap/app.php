@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'inventory.api-token' => \App\Http\Middleware\VerifyInventoryApiToken::class,
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         ]);
+
+        $middleware->appendToGroup('web', \App\Http\Middleware\EnsureAccountIsActive::class);
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('stock-alerts:sync --notify')->everyFiveMinutes();

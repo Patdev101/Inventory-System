@@ -10,7 +10,9 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\StockMovementRequestController;
 use App\Http\Controllers\UnitOfMeasureController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\StockAlertController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
@@ -91,6 +93,67 @@ Route::middleware('role:admin,manager')->group(function () {
         StockAlertController::class,
         'resolve',
     ])->name('stock-alerts.resolve');
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Users
+|--------------------------------------------------------------------------
+|
+| Admins may create manager and staff accounts. Managers may create
+| staff accounts only. The role dropdown and the server-side
+| validation are both driven by UserController::assignableRoles().
+*/
+
+Route::middleware('role:admin,manager')->group(function () {
+
+    Route::resource('users', UserController::class)
+        ->only(['index', 'create', 'store']);
+
+    Route::patch('/users/{user}/deactivate', [
+        UserController::class,
+        'deactivate',
+    ])->name('users.deactivate');
+
+    Route::patch('/users/{user}/activate', [
+        UserController::class,
+        'activate',
+    ])->name('users.activate');
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Stock Movement Requests (staff approval queue)
+|--------------------------------------------------------------------------
+|
+| Staff cannot move stock directly - their stock-in/out submissions
+| (see InventoryController@store / @update) are queued here instead.
+| Staff may view this page too (scoped to their own submissions in
+| StockMovementRequestController@index, for transparency into what
+| they requested and whether it was approved/rejected). Only
+| admin/manager may approve or reject.
+*/
+
+Route::get('/stock-movement-requests', [
+    StockMovementRequestController::class,
+    'index',
+])->name('stock-movement-requests.index');
+
+Route::middleware('role:admin,manager')->group(function () {
+
+    Route::patch('/stock-movement-requests/{stockMovementRequest}/approve', [
+        StockMovementRequestController::class,
+        'approve',
+    ])->name('stock-movement-requests.approve');
+
+    Route::patch('/stock-movement-requests/{stockMovementRequest}/reject', [
+        StockMovementRequestController::class,
+        'reject',
+    ])->name('stock-movement-requests.reject');
 
 });
 
@@ -208,14 +271,16 @@ Route::resource('products', ProductController::class)
 |--------------------------------------------------------------------------
 |
 | Viewing inventory is open to any signed-in user. Adding stock and
-| stock movements require manager or admin. Deleting an inventory
-| record is admin-only.
+| stock movements are open to staff too, but a staff-submitted
+| movement is queued as a StockMovementRequest pending manager/admin
+| approval rather than applied immediately (see InventoryController).
+| Deleting an inventory record is admin-only.
 |
 | Registered before the view-only routes for the same reason as above:
 | "inventories/create" must be matched before "inventories/{inventory}".
 */
 
-Route::middleware('role:admin,manager')->group(function () {
+Route::middleware('role:admin,manager,staff')->group(function () {
 
     Route::resource('inventories', InventoryController::class)
         ->only(['create', 'store', 'edit', 'update']);

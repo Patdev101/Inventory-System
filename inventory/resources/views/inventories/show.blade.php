@@ -121,7 +121,7 @@
 
     <div class="actions">
 
-        @if (auth()->user()->hasRole('admin', 'manager'))
+        @if (auth()->user()->hasRole('admin', 'manager', 'staff'))
         <a
             href="{{ route('inventories.edit', $inventory) }}"
             class="btn btn-secondary"

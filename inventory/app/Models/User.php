@@ -25,6 +25,17 @@ class User extends Authenticatable
     ];
 
     /**
+     * Matches the 'is_active' column's database default. Without this,
+     * a freshly-created-but-not-refreshed instance (e.g. from a factory,
+     * or anywhere passed straight to Auth::login()/actingAs()) reads
+     * is_active as null instead of true, since Eloquent does not
+     * automatically pull DB column defaults into the in-memory model.
+     */
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -34,6 +45,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'is_active',
     ];
 
     /**
@@ -56,6 +68,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 

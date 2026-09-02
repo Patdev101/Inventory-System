@@ -169,7 +169,7 @@ class InventoryApiController extends Controller
                 'inventory' => $inventory->fresh(),
                 'transaction' => $transaction,
             ];
-        });
+        }, 3);
 
         return response()->json([
             'message' => 'Stock removed successfully.',
@@ -332,7 +332,7 @@ class InventoryApiController extends Controller
                 'inventory' => $inventory->fresh(),
                 'transaction' => $transaction,
             ];
-        });
+        }, 3);
 
         return response()->json([
             'message' => 'Stock added successfully.',

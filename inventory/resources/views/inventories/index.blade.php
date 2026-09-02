@@ -233,7 +233,7 @@
         </p>
     </div>
 
-    @if (auth()->user()->hasRole('admin', 'manager'))
+    @if (auth()->user()->hasRole('admin', 'manager', 'staff'))
     <a
         href="{{ route('inventories.create') }}"
         class="btn btn-primary"
@@ -582,7 +582,7 @@
                             </a>
 
 
-                            @if (auth()->user()->hasRole('admin', 'manager'))
+                            @if (auth()->user()->hasRole('admin', 'manager', 'staff'))
                             <a
                                 href="{{ route(
                                     'inventories.edit',
@@ -677,7 +677,7 @@
                 No inventory records found.
             </p>
 
-            @if (auth()->user()->hasRole('admin', 'manager'))
+            @if (auth()->user()->hasRole('admin', 'manager', 'staff'))
             <a
                 href="{{ route('inventories.create') }}"
                 class="btn btn-primary"

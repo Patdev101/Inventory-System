@@ -6,13 +6,20 @@ use App\Models\Inventory;
 use App\Models\InventoryTransaction;
 use App\Models\Location;
 use App\Models\Product;
-use App\Models\ProductUnit;
+use App\Models\StockMovementRequest;
+use App\Models\User;
+use App\Services\InventoryMovementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
 {
+    public function __construct(
+        private readonly InventoryMovementService $movementService
+    ) {
+    }
+
 /**
 * Display inventory list.
 */
@@ -75,9 +82,8 @@ public function create()
 /**
  * Add inventory / stock.
  *
- * The selected product unit is used for the incoming movement.
- * If inventory already exists, the inventory's existing display
- * unit is preserved.
+ * Staff submissions are queued as a StockMovementRequest pending
+ * manager/admin approval instead of being applied immediately.
  */
 public function store(Request $request)
 {
@@ -107,99 +113,32 @@ public function store(Request $request)
         ],
     ]);
 
-    $product = Product::findOrFail(
-        $validated['product_id']
-    );
-
-    if (!$product->is_active) {
-        throw ValidationException::withMessages([
-            'product_id' =>
-                'This product is deactivated and cannot receive new stock.',
+    if ($request->user()?->hasRole(User::ROLE_STAFF)) {
+        StockMovementRequest::create([
+            'inventory_id' => null,
+            'product_id' => $validated['product_id'],
+            'location_id' => $validated['location_id'],
+            'product_unit_id' => $validated['product_unit_id'],
+            'type' => 'in',
+            'quantity' => $validated['quantity'],
+            'status' => StockMovementRequest::STATUS_PENDING,
+            'requested_by' => $request->user()->id,
         ]);
+
+        return redirect()
+            ->route('inventories.index')
+            ->with(
+                'success',
+                'Stock addition submitted for manager approval.'
+            );
     }
 
-    $productUnit = $this->getValidProductUnit(
+    $this->movementService->addStock(
         (int) $validated['product_id'],
-        (int) $validated['product_unit_id']
+        (int) $validated['location_id'],
+        (int) $validated['product_unit_id'],
+        (float) $validated['quantity']
     );
-
-    $enteredQuantity = (float) $validated['quantity'];
-
-    $movementConversionFactor =
-        (float) $productUnit->conversion_factor;
-
-    $movementBaseQuantity =
-        $enteredQuantity * $movementConversionFactor;
-
-    DB::transaction(function () use (
-        $validated,
-        $productUnit,
-        $enteredQuantity,
-        $movementBaseQuantity,
-        $movementConversionFactor
-    ) {
-        $inventory = Inventory::where(
-            'product_id',
-            $validated['product_id']
-        )
-            ->where(
-                'location_id',
-                $validated['location_id']
-            )
-            ->lockForUpdate()
-            ->first();
-
-        if ($inventory) {
-            /*
-             * base_quantity is the authoritative stock balance.
-             */
-            $currentBaseQuantity =
-                $this->resolveBaseQuantity($inventory);
-
-            $newBaseQuantity =
-                $currentBaseQuantity + $movementBaseQuantity;
-
-            /*
-             * Preserve the inventory's existing display unit.
-             */
-            $displayConversionFactor =
-                $this->getInventoryConversionFactor($inventory);
-
-            $displayQuantity =
-                $newBaseQuantity / $displayConversionFactor;
-
-            $inventory->update([
-                'quantity' => $displayQuantity,
-                'base_quantity' => $newBaseQuantity,
-            ]);
-        } else {
-            /*
-             * For a new inventory record, the first movement's
-             * product unit becomes the inventory display unit.
-             */
-            $inventory = Inventory::create([
-                'product_id' => $validated['product_id'],
-                'location_id' => $validated['location_id'],
-                'product_unit_id' => $productUnit->id,
-                'conversion_factor' => $movementConversionFactor,
-                'quantity' => $enteredQuantity,
-                'base_quantity' => $movementBaseQuantity,
-            ]);
-        }
-
-        /*
-         * Always record the exact unit used by this movement.
-         */
-        $this->createTransaction(
-            inventory: $inventory,
-            type: 'in',
-            quantity: $enteredQuantity,
-            baseQuantity: $movementBaseQuantity,
-            productUnitId: $productUnit->id,
-            conversionFactor: $movementConversionFactor,
-            reference: 'Inventory addition'
-        );
-    });
 
     return redirect()
         ->route('inventories.index')
@@ -282,8 +221,8 @@ public function edit(Inventory $inventory)
 /**
  * Update inventory through a stock movement.
  *
- * The selected product unit belongs to the movement only.
- * It does NOT replace the inventory's display unit.
+ * Staff submissions are queued as a StockMovementRequest pending
+ * manager/admin approval instead of being applied immediately.
  */
 public function update(
     Request $request,
@@ -320,160 +259,61 @@ public function update(
         ],
     ]);
 
-    $product = Product::findOrFail(
-        $validated['product_id']
-    );
-
-    if (
-        !$product->is_active &&
-        $validated['movement_type'] === 'in'
-    ) {
-        throw ValidationException::withMessages([
-            'product_id' =>
-                'This product is deactivated and cannot receive new stock.',
+    if ($request->user()?->hasRole(User::ROLE_STAFF)) {
+        StockMovementRequest::create([
+            'inventory_id' => $inventory->id,
+            'product_id' => $validated['product_id'],
+            'location_id' => $validated['location_id'],
+            'product_unit_id' => $validated['product_unit_id'],
+            'type' => $validated['movement_type'],
+            'quantity' => $validated['quantity'],
+            'status' => StockMovementRequest::STATUS_PENDING,
+            'requested_by' => $request->user()->id,
         ]);
+
+        return redirect()
+            ->route('inventories.show', $inventory)
+            ->with(
+                'success',
+                'Stock movement submitted for manager approval.'
+            );
     }
 
     /*
-     * Validate that the selected unit belongs to the product.
+     * Product + location identifies an inventory record. Staff
+     * requests skip this check since it is re-validated at approval
+     * time against whatever the inventory looks like then.
      */
-    $productUnit = $this->getValidProductUnit(
-        (int) $validated['product_id'],
-        (int) $validated['product_unit_id']
-    );
-
-    $enteredQuantity =
-        (float) $validated['quantity'];
-
-    /*
-     * This conversion factor belongs to this movement.
-     */
-    $movementConversionFactor =
-        (float) $productUnit->conversion_factor;
-
-    $movementBaseQuantity =
-        $enteredQuantity * $movementConversionFactor;
-
-    DB::transaction(function () use (
-        $inventory,
-        $validated,
-        $productUnit,
-        $enteredQuantity,
-        $movementBaseQuantity,
-        $movementConversionFactor
-    ) {
-        /*
-         * Lock inventory so concurrent movements cannot
-         * overwrite the balance.
-         */
-        $inventory = Inventory::whereKey(
+    $duplicate = Inventory::where(
+        'product_id',
+        $validated['product_id']
+    )
+        ->where(
+            'location_id',
+            $validated['location_id']
+        )
+        ->where(
+            'id',
+            '!=',
             $inventory->id
         )
-            ->lockForUpdate()
-            ->firstOrFail();
+        ->exists();
 
-        /*
-         * Product + location identifies an inventory record.
-         */
-        $duplicate = Inventory::where(
-            'product_id',
-            $validated['product_id']
-        )
-            ->where(
-                'location_id',
-                $validated['location_id']
-            )
-            ->where(
-                'id',
-                '!=',
-                $inventory->id
-            )
-            ->lockForUpdate()
-            ->exists();
-
-        if ($duplicate) {
-            throw ValidationException::withMessages([
-                'product_id' =>
-                    'Inventory already exists for this product and location. '
-                    . 'Edit the existing inventory instead.',
-            ]);
-        }
-
-        /*
-         * Stock is always calculated in base units.
-         */
-        $currentBaseQuantity =
-            $this->resolveBaseQuantity($inventory);
-
-        if ($validated['movement_type'] === 'in') {
-            $newBaseQuantity =
-                $currentBaseQuantity +
-                $movementBaseQuantity;
-        } else {
-            $newBaseQuantity =
-                $currentBaseQuantity -
-                $movementBaseQuantity;
-        }
-
-        /*
-         * Never allow negative inventory.
-         */
-        if ($newBaseQuantity < -0.0000001) {
-            throw ValidationException::withMessages([
-                'quantity' =>
-                    'Insufficient stock. You cannot remove more stock than is currently available.',
-            ]);
-        }
-
-        /*
-         * Remove tiny floating-point errors around zero.
-         */
-        if ($newBaseQuantity < 0) {
-            $newBaseQuantity = 0;
-        }
-
-        /*
-         * Preserve the inventory's configured display unit.
-         *
-         * The movement unit is not used to calculate the displayed
-         * inventory quantity.
-         */
-        $displayConversionFactor =
-            $this->getInventoryConversionFactor($inventory);
-
-        $displayQuantity =
-            $newBaseQuantity / $displayConversionFactor;
-
-        /*
-         * Only update the stock balance.
-         *
-         * Do not overwrite:
-         * - product_unit_id
-         * - conversion_factor
-         *
-         * Those describe the inventory display unit.
-         */
-        $inventory->update([
-            'quantity' => $displayQuantity,
-            'base_quantity' => $newBaseQuantity,
+    if ($duplicate) {
+        throw ValidationException::withMessages([
+            'product_id' =>
+                'Inventory already exists for this product and location. '
+                . 'Edit the existing inventory instead.',
         ]);
+    }
 
-        /*
-         * Store the movement's own unit and conversion factor.
-         */
-        $this->createTransaction(
-            inventory: $inventory,
-            type: $validated['movement_type'],
-            quantity: $enteredQuantity,
-            baseQuantity: $movementBaseQuantity,
-            productUnitId: $productUnit->id,
-            conversionFactor: $movementConversionFactor,
-            reference:
-                $validated['movement_type'] === 'in'
-                    ? 'Inventory stock added'
-                    : 'Inventory stock removed'
-        );
-    });
+    $inventory = $this->movementService->moveStock(
+        $inventory,
+        (int) $validated['product_id'],
+        (int) $validated['product_unit_id'],
+        $validated['movement_type'],
+        (float) $validated['quantity']
+    );
 
     return redirect()
         ->route('inventories.show', $inventory)
@@ -501,34 +341,28 @@ public function destroy(Inventory $inventory)
             ->firstOrFail();
 
         $baseQuantity =
-            $this->resolveBaseQuantity($inventory);
+            $this->movementService->resolveBaseQuantity($inventory);
 
         if ($baseQuantity > 0.0000001) {
-            $quantity =
-                $this->resolveDisplayQuantity(
-                    $inventory,
-                    $baseQuantity
-                );
-
             $conversionFactor =
-                $this->getInventoryConversionFactor(
+                $this->movementService->getInventoryConversionFactor(
                     $inventory
                 );
 
-            $this->createTransaction(
-                inventory: $inventory,
-                type: 'out',
-                quantity: $quantity,
-                baseQuantity: $baseQuantity,
-                productUnitId:
-                    $inventory->product_unit_id,
-                conversionFactor:
-                    $conversionFactor,
-                reference:
-                    'Inventory deleted',
-                notes:
-                    'Remaining inventory recorded as OUT before inventory deletion.'
-            );
+            $quantity = $baseQuantity / $conversionFactor;
+
+            InventoryTransaction::create([
+                'inventory_id' => $inventory->id,
+                'product_id' => $inventory->product_id,
+                'location_id' => $inventory->location_id,
+                'type' => 'out',
+                'quantity' => $quantity,
+                'base_quantity' => $baseQuantity,
+                'product_unit_id' => $inventory->product_unit_id,
+                'conversion_factor' => $conversionFactor,
+                'reference' => 'Inventory deleted',
+                'notes' => 'Remaining inventory recorded as OUT before inventory deletion.',
+            ]);
         }
 
         $inventory->delete();
@@ -540,160 +374,6 @@ public function destroy(Inventory $inventory)
             'success',
             'Inventory deleted successfully.'
         );
-}
-
-/**
- * Validate ProductUnit ownership and conversion factor.
- */
-private function getValidProductUnit(
-    int $productId,
-    int $productUnitId
-): ProductUnit {
-    $productUnit = ProductUnit::with(
-        'unitOfMeasure'
-    )
-        ->whereKey($productUnitId)
-        ->where(
-            'product_id',
-            $productId
-        )
-        ->first();
-
-    if (!$productUnit) {
-        throw ValidationException::withMessages([
-            'product_unit_id' =>
-                'The selected unit does not belong to this product.',
-        ]);
-    }
-
-    $conversionFactor =
-        (float) $productUnit->conversion_factor;
-
-    if ($conversionFactor <= 0) {
-        throw ValidationException::withMessages([
-            'product_unit_id' =>
-                'The selected unit has an invalid conversion factor.',
-        ]);
-    }
-
-    return $productUnit;
-}
-
-/**
- * Resolve inventory stock in base units.
- *
- * base_quantity is authoritative when it is populated.
- *
- * The fallback exists for older records where base_quantity may
- * not have been populated yet.
- */
-private function resolveBaseQuantity(
-    Inventory $inventory
-): float {
-    $baseQuantity =
-        (float) $inventory->base_quantity;
-
-    if ($baseQuantity > 0) {
-        return $baseQuantity;
-    }
-
-    $quantity =
-        (float) $inventory->quantity;
-
-    if ($quantity <= 0) {
-        return 0;
-    }
-
-    $conversionFactor =
-        $this->getInventoryConversionFactor($inventory);
-
-    return $quantity * $conversionFactor;
-}
-
-/**
- * Get the inventory's configured display-unit conversion factor.
- */
-private function getInventoryConversionFactor(
-    Inventory $inventory
-): float {
-    $conversionFactor =
-        (float) $inventory->conversion_factor;
-
-    return $conversionFactor > 0
-        ? $conversionFactor
-        : 1;
-}
-
-/**
- * Convert base quantity into the inventory's display quantity.
- */
-private function resolveDisplayQuantity(
-    Inventory $inventory,
-    float $baseQuantity
-): float {
-    $conversionFactor =
-        $this->getInventoryConversionFactor($inventory);
-
-    return $baseQuantity / $conversionFactor;
-}
-
-/**
- * Create normalized inventory transaction.
- *
- * quantity and conversion_factor describe the unit used
- * for the movement.
- *
- * base_quantity is the normalized stock movement.
- */
-private function createTransaction(
-    Inventory $inventory,
-    string $type,
-    float $quantity,
-    float $baseQuantity,
-    ?int $productUnitId = null,
-    ?float $conversionFactor = null,
-    ?string $reference = null,
-    ?string $notes = null
-): InventoryTransaction {
-    if (!in_array($type, ['in', 'out'], true)) {
-        throw new \InvalidArgumentException(
-            'Invalid inventory transaction type.'
-        );
-    }
-
-    if ($quantity <= 0) {
-        throw new \InvalidArgumentException(
-            'Transaction quantity must be greater than zero.'
-        );
-    }
-
-    if ($baseQuantity <= 0) {
-        throw new \InvalidArgumentException(
-            'Transaction base quantity must be greater than zero.'
-        );
-    }
-
-    if (
-        $conversionFactor === null ||
-        $conversionFactor <= 0
-    ) {
-        throw new \InvalidArgumentException(
-            'Transaction conversion factor must be greater than zero.'
-        );
-    }
-
-    return InventoryTransaction::create([
-        'inventory_id' => $inventory->id,
-        'product_id' => $inventory->product_id,
-        'location_id' => $inventory->location_id,
-        'type' => $type,
-        'quantity' => $quantity,
-        'base_quantity' => $baseQuantity,
-        'product_unit_id' => $productUnitId,
-        'conversion_factor' => $conversionFactor,
-        'reference' => $reference,
-        'notes' => $notes,
-    ]);
 }
 
 }

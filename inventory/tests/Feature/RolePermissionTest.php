@@ -64,7 +64,7 @@ class RolePermissionTest extends TestCase
         }
     }
 
-    public function test_staff_cannot_adjust_stock_or_create_transfers(): void
+    public function test_staff_can_submit_stock_movements_for_approval_but_cannot_transfer_or_delete(): void
     {
         $staff = $this->makeUser(User::ROLE_STAFF);
 
@@ -78,11 +78,29 @@ class RolePermissionTest extends TestCase
 
         $this->actingAs($staff)
             ->get(route('inventories.create'))
-            ->assertForbidden();
+            ->assertOk();
 
         $this->actingAs($staff)
             ->get(route('inventories.edit', $inventory))
-            ->assertForbidden();
+            ->assertOk();
+
+        $this->actingAs($staff)
+            ->patch(route('inventories.update', $inventory), [
+                'product_id' => $product->id,
+                'location_id' => $location->id,
+                'product_unit_id' => $productUnit->id,
+                'movement_type' => 'in',
+                'quantity' => 5,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('stock_movement_requests', [
+            'inventory_id' => $inventory->id,
+            'requested_by' => $staff->id,
+            'status' => 'pending',
+        ]);
+
+        $this->assertEquals(10, $inventory->fresh()->base_quantity);
 
         $this->actingAs($staff)
             ->get(route('inventory-transfers.create'))
@@ -91,6 +109,41 @@ class RolePermissionTest extends TestCase
         $this->actingAs($staff)
             ->delete(route('inventories.destroy', $inventory))
             ->assertForbidden();
+    }
+
+    public function test_manager_can_approve_a_staff_stock_movement_request(): void
+    {
+        $staff = $this->makeUser(User::ROLE_STAFF);
+        $manager = $this->makeUser(User::ROLE_MANAGER);
+
+        $company = $this->makeCompany();
+        $location = $this->makeLocation($company);
+        $category = $this->makeCategory();
+        $unit = $this->makeUnit();
+        $product = $this->makeProduct($company, $category, $unit);
+        $productUnit = $this->makeProductUnit($product, $unit);
+        $inventory = $this->makeInventory($product, $location, $productUnit, 10, 10);
+
+        $this->actingAs($staff)->patch(route('inventories.update', $inventory), [
+            'product_id' => $product->id,
+            'location_id' => $location->id,
+            'product_unit_id' => $productUnit->id,
+            'movement_type' => 'in',
+            'quantity' => 5,
+        ]);
+
+        $stockMovementRequest = \App\Models\StockMovementRequest::firstOrFail();
+
+        $this->actingAs($manager)
+            ->get(route('stock-movement-requests.index'))
+            ->assertOk();
+
+        $this->actingAs($manager)
+            ->patch(route('stock-movement-requests.approve', $stockMovementRequest))
+            ->assertRedirect();
+
+        $this->assertEquals(15, $inventory->fresh()->base_quantity);
+        $this->assertEquals('approved', $stockMovementRequest->fresh()->status);
     }
 
     public function test_manager_can_adjust_stock_but_not_delete_inventory(): void
