@@ -12,10 +12,13 @@ class StockMovementRequest extends Model
     public const STATUS_APPROVED = 'approved';
     public const STATUS_REJECTED = 'rejected';
 
+    public const TYPE_TRANSFER = 'transfer';
+
     protected $fillable = [
         'inventory_id',
         'product_id',
         'location_id',
+        'destination_location_id',
         'product_unit_id',
         'type',
         'quantity',
@@ -45,6 +48,16 @@ class StockMovementRequest extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function destinationLocation(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'destination_location_id');
+    }
+
+    public function isTransfer(): bool
+    {
+        return $this->type === self::TYPE_TRANSFER;
     }
 
     public function productUnit(): BelongsTo

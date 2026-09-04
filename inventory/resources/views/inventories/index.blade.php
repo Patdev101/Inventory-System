@@ -2,6 +2,8 @@
 
 @section('title', 'Inventory')
 
+@section('autoRefreshSeconds', 5)
+
 @section('content')
 
 <style>

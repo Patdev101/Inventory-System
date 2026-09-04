@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureAccountIsActive::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\EnsureNoForcedPasswordChange::class);
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('stock-alerts:sync --notify')->everyFiveMinutes();

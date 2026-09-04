@@ -9,15 +9,8 @@
         body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 20px; font-family: Arial, Helvetica, sans-serif; background: #eaf1f8; color: #1e293b; }
         .panel { width: min(100%, 420px); background: white; padding: 32px; border: 1px solid #dbe4ee; border-radius: 10px; box-shadow: 0 12px 35px rgba(15, 23, 42, .1); }
         h1 { margin: 0 0 8px; color: #0f172a; font-size: 26px; }
-        .intro { margin: 0 0 26px; color: #64748b; }
-        .field { margin-bottom: 18px; }
-        label { display: block; margin-bottom: 7px; font-weight: bold; }
-        input { width: 100%; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
-        input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
-        button { width: 100%; padding: 11px 14px; border: 0; border-radius: 6px; background: #2563eb; color: white; font: inherit; font-weight: bold; cursor: pointer; }
-        button:hover { background: #1d4ed8; }
-        .error { margin: 0 0 16px; color: #b91c1c; font-size: 14px; }
-        .status { margin: 0 0 16px; color: #166534; font-size: 14px; }
+        .intro { margin: 0 0 20px; color: #64748b; line-height: 1.5; }
+        .info-box { margin-bottom: 20px; padding: 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1e40af; font-size: 14px; line-height: 1.5; }
         .back-link { margin: 16px 0 0; text-align: center; font-size: 14px; }
         .back-link a { color: #2563eb; text-decoration: none; }
         .back-link a:hover { text-decoration: underline; }
@@ -26,24 +19,15 @@
 <body>
     <main class="panel">
         <h1>Forgot your password?</h1>
-        <p class="intro">Enter your email address and we'll send you a link to reset your password.</p>
+        <p class="intro">
+            This is an internal business system with no automated email
+            password reset.
+        </p>
 
-        @if (session('status'))
-            <div class="status">{{ session('status') }}</div>
-        @endif
-
-        @if ($errors->any())
-            <div class="error">{{ $errors->first() }}</div>
-        @endif
-
-        <form method="POST" action="{{ route('password.email') }}">
-            @csrf
-            <div class="field">
-                <label for="email">Email</label>
-                <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus>
-            </div>
-            <button type="submit">Send reset link</button>
-        </form>
+        <div class="info-box">
+            Please contact an administrator. They can reset your password
+            for you from <strong>User Management</strong>.
+        </div>
 
         <p class="back-link"><a href="{{ route('login') }}">Back to sign in</a></p>
     </main>

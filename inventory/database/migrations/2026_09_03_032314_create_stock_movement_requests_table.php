@@ -18,15 +18,15 @@ return new class extends Migration
 
             $table->foreignId('product_id')
                 ->constrained('products')
-                ->cascadeOnDelete();
+                ->onDelete('no action');
 
             $table->foreignId('location_id')
                 ->constrained('locations')
-                ->cascadeOnDelete();
+                ->onDelete('no action');
 
             $table->foreignId('product_unit_id')
                 ->constrained('product_units')
-                ->cascadeOnDelete();
+                ->onDelete('no action');
 
             $table->string('type', 10);
             $table->decimal('quantity', 18, 4);
@@ -36,12 +36,12 @@ return new class extends Migration
 
             $table->foreignId('requested_by')
                 ->constrained('users')
-                ->cascadeOnDelete();
+                ->onDelete('no action');
 
             $table->foreignId('reviewed_by')
                 ->nullable()
                 ->constrained('users')
-                ->nullOnDelete();
+                ->onDelete('no action');
 
             $table->timestamp('reviewed_at')->nullable();
 

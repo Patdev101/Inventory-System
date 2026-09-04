@@ -181,9 +181,26 @@ public function show(Inventory $inventory)
             $runningBalance;
     }
 
+    $transferCandidates = collect();
+
+    if ($inventory->isOutOfStock() && $inventory->location && $inventory->product) {
+        $transferCandidates = Inventory::with('location')
+            ->where('product_id', $inventory->product_id)
+            ->where('base_quantity', '>', 0)
+            ->whereHas('location', function ($query) use ($inventory) {
+                $query->where('company_id', $inventory->location->company_id)
+                    ->where('id', '!=', $inventory->location_id);
+            })
+            ->get();
+    }
+
+    $productUnits = $inventory->product
+        ? $inventory->product->productUnits()->with('unitOfMeasure')->get()
+        : collect();
+
     return view(
         'inventories.show',
-        compact('inventory', 'transactions')
+        compact('inventory', 'transactions', 'transferCandidates', 'productUnits')
     );
 }
 
@@ -322,6 +339,104 @@ public function update(
             $validated['movement_type'] === 'in'
                 ? 'Stock added successfully.'
                 : 'Stock removed successfully.'
+        );
+}
+
+/**
+ * Request stock be moved in from another location of the same company
+ * that currently has it, to cover an out-of-stock (or low-stock)
+ * inventory record.
+ *
+ * Staff submissions are queued as a StockMovementRequest pending
+ * manager/admin approval, same as any other stock movement. Admins and
+ * managers already have full access to Transfer Inventory, so their
+ * request executes immediately.
+ */
+public function requestTransfer(Request $request, Inventory $inventory)
+{
+    $inventory->load('location');
+
+    $validated = $request->validate([
+        'source_location_id' => [
+            'required',
+            'integer',
+            'exists:locations,id',
+        ],
+
+        'product_unit_id' => [
+            'required',
+            'integer',
+            'exists:product_units,id',
+        ],
+
+        'quantity' => [
+            'required',
+            'numeric',
+            'gt:0',
+        ],
+    ]);
+
+    if ((int) $validated['source_location_id'] === (int) $inventory->location_id) {
+        throw ValidationException::withMessages([
+            'source_location_id' =>
+                'The source location must be different from this one.',
+        ]);
+    }
+
+    $sourceInventory = Inventory::where('product_id', $inventory->product_id)
+        ->where('location_id', $validated['source_location_id'])
+        ->first();
+
+    if (!$sourceInventory || $this->movementService->resolveBaseQuantity($sourceInventory) <= 0) {
+        throw ValidationException::withMessages([
+            'source_location_id' =>
+                'The selected location does not currently have stock of this product.',
+        ]);
+    }
+
+    $sourceLocation = Location::with('company')->findOrFail($validated['source_location_id']);
+
+    if ((int) $sourceLocation->company_id !== (int) $inventory->location->company_id) {
+        throw ValidationException::withMessages([
+            'source_location_id' =>
+                'The source location must belong to the same company.',
+        ]);
+    }
+
+    if ($request->user()?->hasRole(User::ROLE_STAFF)) {
+        StockMovementRequest::create([
+            'inventory_id' => $sourceInventory->id,
+            'product_id' => $inventory->product_id,
+            'location_id' => $sourceInventory->location_id,
+            'destination_location_id' => $inventory->location_id,
+            'product_unit_id' => $validated['product_unit_id'],
+            'type' => StockMovementRequest::TYPE_TRANSFER,
+            'quantity' => $validated['quantity'],
+            'status' => StockMovementRequest::STATUS_PENDING,
+            'requested_by' => $request->user()->id,
+        ]);
+
+        return redirect()
+            ->route('inventories.show', $inventory)
+            ->with(
+                'success',
+                'Transfer request submitted for manager approval.'
+            );
+    }
+
+    $this->movementService->transferStock(
+        sourceInventoryId: $sourceInventory->id,
+        destinationInventoryId: $inventory->id,
+        productUnitId: (int) $validated['product_unit_id'],
+        quantity: (float) $validated['quantity'],
+        reference: 'Requested transfer to cover low/out-of-stock inventory'
+    );
+
+    return redirect()
+        ->route('inventories.show', $inventory)
+        ->with(
+            'success',
+            'Stock transferred successfully.'
         );
 }
 

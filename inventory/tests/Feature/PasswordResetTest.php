@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -17,44 +16,35 @@ class PasswordResetTest extends TestCase
         $this->get(route('password.request'))->assertOk();
     }
 
-    public function test_reset_link_can_be_requested(): void
+    public function test_forgot_password_page_instructs_the_user_to_contact_an_admin(): void
     {
-        Notification::fake();
+        $response = $this->get(route('password.request'));
 
-        $user = User::factory()->create();
-
-        $this->post(route('password.email'), ['email' => $user->email]);
-
-        Notification::assertSentTo($user, ResetPassword::class);
+        $response->assertOk();
+        $response->assertSee('contact an administrator', false);
+        $response->assertDontSee('<form', false);
     }
 
-    public function test_password_can_be_reset_with_a_valid_token(): void
+    public function test_forgot_password_never_sends_a_reset_email(): void
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        User::factory()->create(['email' => 'someone@example.com']);
 
-        $this->post(route('password.email'), ['email' => $user->email]);
+        $this->get(route('password.request'))->assertOk();
 
-        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
-            $response = $this->post(route('password.update'), [
-                'token' => $notification->token,
-                'email' => $user->email,
-                'password' => 'new-password-123',
-                'password_confirmation' => 'new-password-123',
-            ]);
+        Notification::assertNothingSent();
+    }
 
-            $response->assertRedirect(route('login'));
+    public function test_email_based_password_reset_routes_no_longer_exist(): void
+    {
+        // GET /forgot-password still exists (it's the contact-an-admin
+        // page) but there is no POST handler to send a reset email.
+        $this->post('/forgot-password', ['email' => 'someone@example.com'])
+            ->assertStatus(405);
 
-            $this->assertTrue(
-                \Illuminate\Support\Facades\Hash::check(
-                    'new-password-123',
-                    $user->fresh()->password
-                )
-            );
-
-            return true;
-        });
+        $this->get('/reset-password/some-token')
+            ->assertStatus(404);
     }
 
     public function test_login_is_rate_limited_after_repeated_failures(): void

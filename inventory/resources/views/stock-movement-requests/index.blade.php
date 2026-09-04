@@ -29,11 +29,22 @@
         <div class="stock-request-header">
             <div>
                 <h2 class="stock-request-type stock-request-type-{{ $stockMovementRequest->type }}">
-                    {{ $stockMovementRequest->type === 'in' ? 'Stock In' : 'Stock Out' }}
+                    @if ($stockMovementRequest->isTransfer())
+                        Transfer Request
+                    @else
+                        {{ $stockMovementRequest->type === 'in' ? 'Stock In' : 'Stock Out' }}
+                    @endif
                 </h2>
                 <div class="stock-request-meta">
-                    {{ $stockMovementRequest->product?->name ?? 'Deleted product' }} at
-                    {{ $stockMovementRequest->location?->name ?? 'Deleted location' }}
+                    {{ $stockMovementRequest->product?->name ?? 'Deleted product' }}
+
+                    @if ($stockMovementRequest->isTransfer())
+                        from {{ $stockMovementRequest->location?->name ?? 'Deleted location' }}
+                        to {{ $stockMovementRequest->destinationLocation?->name ?? 'Deleted location' }}
+                    @else
+                        at {{ $stockMovementRequest->location?->name ?? 'Deleted location' }}
+                    @endif
+
                     &middot; Requested by {{ $stockMovementRequest->requestedBy?->name ?? 'Unknown' }}
                 </div>
             </div>
@@ -84,6 +95,7 @@
     .stock-request-status { color: #475569; font-size: 13px; }
     .stock-request-type-in { color: #15803d; }
     .stock-request-type-out { color: #b45309; }
+    .stock-request-type-transfer { color: #1d4ed8; }
     .stock-request-reason { color: #b91c1c; font-size: 13px; }
     .stock-request-reviewed { opacity: .65; }
     .pagination-wrap { margin-top: 20px; }

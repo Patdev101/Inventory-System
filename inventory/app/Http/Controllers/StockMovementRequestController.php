@@ -21,6 +21,7 @@ class StockMovementRequestController extends Controller
         $query = StockMovementRequest::with([
             'product',
             'location',
+            'destinationLocation',
             'productUnit.unitOfMeasure',
             'requestedBy',
             'reviewedBy',
@@ -63,7 +64,34 @@ class StockMovementRequestController extends Controller
             );
         }
 
-        if ($stockMovementRequest->inventory_id) {
+        if ($stockMovementRequest->isTransfer()) {
+            /*
+             * The destination might not have had an inventory record at
+             * request time (e.g. it was genuinely out of stock with a row
+             * already sitting at 0, or never stocked at all) — find or
+             * create it exactly like a normal stock addition would.
+             */
+            $destinationInventory = Inventory::firstOrCreate(
+                [
+                    'product_id' => $stockMovementRequest->product_id,
+                    'location_id' => $stockMovementRequest->destination_location_id,
+                ],
+                [
+                    'product_unit_id' => $stockMovementRequest->product_unit_id,
+                    'conversion_factor' => 1,
+                    'quantity' => 0,
+                    'base_quantity' => 0,
+                ]
+            );
+
+            $this->movementService->transferStock(
+                sourceInventoryId: $stockMovementRequest->inventory_id,
+                destinationInventoryId: $destinationInventory->id,
+                productUnitId: $stockMovementRequest->product_unit_id,
+                quantity: (float) $stockMovementRequest->quantity,
+                reference: 'Approved transfer request #' . $stockMovementRequest->id
+            );
+        } elseif ($stockMovementRequest->inventory_id) {
             $inventory = Inventory::findOrFail(
                 $stockMovementRequest->inventory_id
             );

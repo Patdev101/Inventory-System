@@ -451,6 +451,44 @@
 
 </div>
 
+<script>
+    /*
+    |--------------------------------------------------------------------------
+    | Auto-refresh
+    |--------------------------------------------------------------------------
+    |
+    | Stock changes constantly from the POS side. Pages that show live
+    | stock numbers (dashboard, inventory list/detail) opt in by setting
+    | the "autoRefreshSeconds" section to a number of seconds, instead of
+    | requiring a manual reload to see what the POS already deducted.
+    | Scroll position is restored so a long page doesn't jump back to
+    | the top every reload.
+    */
+    (function () {
+        var seconds = @yield('autoRefreshSeconds', 'null');
+
+        if (!seconds) {
+            return;
+        }
+
+        var storageKey = 'inventory-scroll:' + window.location.pathname + window.location.search;
+        var savedScroll = sessionStorage.getItem(storageKey);
+
+        if (savedScroll !== null) {
+            window.scrollTo(0, parseInt(savedScroll, 10));
+            sessionStorage.removeItem(storageKey);
+        }
+
+        setInterval(function () {
+            if (document.hidden) {
+                return;
+            }
+
+            sessionStorage.setItem(storageKey, String(window.scrollY));
+            window.location.reload();
+        }, seconds * 1000);
+    })();
+</script>
 
 </body>
 

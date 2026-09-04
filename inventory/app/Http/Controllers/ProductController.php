@@ -40,12 +40,15 @@ class ProductController extends Controller
 
         $units = UnitOfMeasure::orderBy('name')->get();
 
+        $vatRate = (float) config('pricing.vat_rate', 0);
+
         return view(
             'products.create',
             compact(
                 'categories',
                 'companies',
-                'units'
+                'units',
+                'vatRate'
             )
         );
     }
@@ -119,6 +122,8 @@ class ProductController extends Controller
                 'numeric',
                 'gt:0',
             ],
+
+            ...$this->pricingValidationRules(),
         ]);
 
         $this->validateBaseUnit(
@@ -131,56 +136,60 @@ class ProductController extends Controller
             $validated['base_unit_id']
         );
 
-        DB::transaction(function () use ($validated) {
-            $product = Product::create([
-                'product_category_id' =>
-                    $validated['product_category_id'],
+        $pricing = $this->resolvePricing($validated);
 
-                'name' =>
-                    $validated['name'],
+        DB::transaction(function () use ($validated, $pricing) {
+    $sku = $validated['sku'] ?? 'SKU-' . strtoupper(uniqid());   
+    
+    $product = Product::create([
+            'product_category_id' =>
+                $validated['product_category_id'],
 
-                'sku' =>
-                    $validated['sku'] ?? null,
+            'name' =>
+                $validated['name'],
 
-                'description' =>
-                    $validated['description'] ?? null,
+            'sku' => $sku, // <--- Fixed: Use the generated variable here!
 
-                'base_unit_id' =>
-                    $validated['base_unit_id'],
+            'description' =>
+                $validated['description'] ?? null,
 
-                'company_id' =>
-                    $validated['company_id'],
+            'base_unit_id' =>
+                $validated['base_unit_id'],
 
-                'reorder_point' =>
-                    $validated['reorder_point'],
+            'company_id' =>
+                $validated['company_id'],
 
-                'is_active' =>
-                    $validated['is_active'] ?? true,
+            'reorder_point' =>
+                $validated['reorder_point'],
+
+            'is_active' =>
+                $validated['is_active'] ?? true,
+
+            ...$pricing,
+        ]);
+
+        foreach ($validated['units'] as $unit) {
+            $product->productUnits()->create([
+                'unit_of_measure_id' =>
+                    $unit['unit_of_measure_id'],
+
+                'conversion_factor' =>
+                    $unit['conversion_factor'],
+
+                'is_default' =>
+                    (int) $unit['unit_of_measure_id']
+                    === (int) $validated['base_unit_id'],
             ]);
+        }
+    });
 
-            foreach ($validated['units'] as $unit) {
-                $product->productUnits()->create([
-                    'unit_of_measure_id' =>
-                        $unit['unit_of_measure_id'],
-
-                    'conversion_factor' =>
-                        $unit['conversion_factor'],
-
-                    'is_default' =>
-                        (int) $unit['unit_of_measure_id']
-                        === (int) $validated['base_unit_id'],
-                ]);
-            }
-        });
-
-        return redirect()
-            ->route('products.index')
-            ->with(
-                'success',
-                'Product created successfully.'
-            );
-    }
-
+    return redirect()
+        ->route('products.index')
+        ->with(
+            'success',
+            'Product created successfully.'
+        );
+}
     public function show(Product $product)
     {
         $product->load([
@@ -222,6 +231,8 @@ class ProductController extends Controller
                 $product->id
             )->exists();
 
+        $vatRate = (float) config('pricing.vat_rate', 0);
+
         return view(
             'products.edit',
             compact(
@@ -229,7 +240,8 @@ class ProductController extends Controller
                 'categories',
                 'companies',
                 'units',
-                'hasInventoryHistory'
+                'hasInventoryHistory',
+                'vatRate'
             )
         );
     }
@@ -305,6 +317,8 @@ class ProductController extends Controller
                 'numeric',
                 'gt:0',
             ],
+
+            ...$this->pricingValidationRules(),
         ]);
 
         $this->validateBaseUnit(
@@ -316,6 +330,8 @@ class ProductController extends Controller
             $validated['units'],
             $validated['base_unit_id']
         );
+
+        $pricing = $this->resolvePricing($validated);
 
         $hasInventoryHistory =
             Inventory::where(
@@ -428,7 +444,8 @@ class ProductController extends Controller
         DB::transaction(function () use (
             $validated,
             $product,
-            $hasInventoryHistory
+            $hasInventoryHistory,
+            $pricing
         ) {
             $product->update([
                 'product_category_id' =>
@@ -454,6 +471,8 @@ class ProductController extends Controller
 
                 'is_active' =>
                     $validated['is_active'] ?? false,
+
+                ...$pricing,
             ]);
 
             $existingUnits =
@@ -661,6 +680,77 @@ class ProductController extends Controller
                 'success',
                 'Product permanently deleted successfully.'
             );
+    }
+
+    /**
+     * Shared pricing validation for store() and update(). Selling price is
+     * only required for manual pricing; cost price and markup percentage
+     * are only required for markup pricing. All monetary/percentage values
+     * must be non-negative.
+     */
+    private function pricingValidationRules(): array
+    {
+        return [
+            'pricing_method' => [
+                'required',
+                'string',
+                'in:' . Product::PRICING_METHOD_MANUAL . ',' . Product::PRICING_METHOD_MARKUP,
+            ],
+
+            'cost_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'required_if:pricing_method,' . Product::PRICING_METHOD_MARKUP,
+            ],
+
+            'markup_percentage' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'required_if:pricing_method,' . Product::PRICING_METHOD_MARKUP,
+            ],
+
+            'selling_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'required_if:pricing_method,' . Product::PRICING_METHOD_MANUAL,
+            ],
+        ];
+    }
+
+    /**
+     * Resolves the actual pricing fields to persist. The selling price for
+     * markup-based pricing is always recalculated here from cost price and
+     * markup percentage — the frontend's live preview is a convenience for
+     * the user only, never trusted as the value that gets saved.
+     */
+    private function resolvePricing(array $validated): array
+    {
+        $pricingMethod = $validated['pricing_method'];
+        $costPrice = $validated['cost_price'] ?? null;
+
+        if ($pricingMethod === Product::PRICING_METHOD_MARKUP) {
+            $markupPercentage = $validated['markup_percentage'];
+
+            return [
+                'pricing_method' => $pricingMethod,
+                'cost_price' => $costPrice,
+                'markup_percentage' => $markupPercentage,
+                'selling_price' => Product::calculateMarkupSellingPrice(
+                    (float) $costPrice,
+                    (float) $markupPercentage
+                ),
+            ];
+        }
+
+        return [
+            'pricing_method' => $pricingMethod,
+            'cost_price' => $costPrice,
+            'markup_percentage' => null,
+            'selling_price' => $validated['selling_price'],
+        ];
     }
 
     private function validateBaseUnit(

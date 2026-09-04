@@ -22,12 +22,28 @@ class InventoryTransfer extends Model
         'base_quantity',
         'reference',
         'notes',
+
+        // pre-existing columns (added by an earlier migration, now
+        // wired up here for the first time)
+        'status',
+        'received_at',
+        'received_by',
+
+        // new audit/receiver workflow columns
+        'receiver_id',
+        'receiver_role',
+        'audit_status',
+        'audited_by',
+        'audited_at',
+        'audit_notes',
     ];
 
     protected $casts = [
         'conversion_factor' => 'decimal:4',
         'quantity' => 'decimal:4',
         'base_quantity' => 'decimal:4',
+        'received_at' => 'datetime',
+        'audited_at' => 'datetime',
     ];
 
     public function sourceInventory(): BelongsTo
@@ -59,6 +75,30 @@ class InventoryTransfer extends Model
         return $this->belongsTo(
             ProductUnit::class,
             'product_unit_id'
+        );
+    }
+
+    public function receivedBy(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'received_by'
+        );
+    }
+
+    public function receiver(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'receiver_id'
+        );
+    }
+
+    public function auditedBy(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'audited_by'
         );
     }
 }

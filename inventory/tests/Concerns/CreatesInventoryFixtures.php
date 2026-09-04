@@ -13,9 +13,9 @@ use App\Models\User;
 
 trait CreatesInventoryFixtures
 {
-    protected function makeUser(string $role): User
+    protected function makeUser(string $role, array $attributes = []): User
     {
-        return User::factory()->create(['role' => $role]);
+        return User::factory()->create(array_merge(['role' => $role], $attributes));
     }
 
     protected function makeCompany(array $attributes = []): Company

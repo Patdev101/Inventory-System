@@ -18,6 +18,8 @@
     .system-link.active { background: linear-gradient(90deg, #1d4ed8, #2563eb); color: white; box-shadow: 0 4px 12px rgba(37,99,235,.2); }
     .system-link-icon { width: 18px; color: #94a3b8; text-align: center; font-size: 13px; }
     .system-link.active .system-link-icon, .system-link:hover .system-link-icon { color: white; }
+    .system-link-badge { margin-left: auto; min-width: 16px; height: 16px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #dc2626; color: white; font-size: 10px; font-weight: 700; line-height: 1; }
+    .system-link.active .system-link-badge { background: white; color: #1d4ed8; }
     .system-user { flex: 0 0 auto; padding: 10px; border-top: 1px solid #1f2937; background: #0f172a; }
     .system-user-info { display: flex; align-items: center; gap: 9px; padding: 5px 5px 9px; }
     .system-avatar { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: linear-gradient(135deg,#3b82f6,#60a5fa); color: white; font-size: 13px; font-weight: 700; }
@@ -45,12 +47,24 @@
 
     <nav class="system-nav">
         @php
+            // Count of transfers assigned to the current user that are
+            // still awaiting audit/receipt, shown as a badge on the
+            // Audit Transfers link. Kept as a lightweight count() query
+            // (not eager-loaded elsewhere) since the sidebar renders on
+            // every page.
+            $pendingAuditsCount = auth()->user()
+                ? \App\Models\InventoryTransfer::where('receiver_id', auth()->id())
+                    ->where('status', 'pending')
+                    ->count()
+                : 0;
+
             $systemNavigation = [
                 ['route' => 'dashboard', 'label' => 'Dashboard', 'icon' => '▦', 'match' => 'dashboard'],
                 ['route' => 'products.index', 'label' => 'Products', 'icon' => '◫', 'match' => 'products.*'],
                 ['route' => 'inventories.index', 'label' => 'Inventory', 'icon' => '▤', 'match' => 'inventories.*'],
                 ['route' => 'inventory-transfers.create', 'label' => 'Transfer Inventory', 'icon' => '⇄', 'match' => 'inventory-transfers.create', 'roles' => ['admin', 'manager']],
-                ['route' => 'inventory-transfers.index', 'label' => 'Transfer History', 'icon' => '↔', 'match' => 'inventory-transfers.*'],
+                ['route' => 'inventory-transfers.pending-audits', 'label' => 'Audit Transfers', 'icon' => '✔', 'match' => 'inventory-transfers.pending-audits', 'badge' => $pendingAuditsCount],
+                ['route' => 'inventory-transfers.index', 'label' => 'Transfer History', 'icon' => '↔', 'match' => 'inventory-transfers.index|inventory-transfers.show'],
                 ['route' => 'inventory-transactions.index', 'label' => 'Transactions', 'icon' => '≡', 'match' => 'inventory-transactions.*'],
                 ['route' => 'stock-alerts.index', 'label' => 'Stock Alerts', 'icon' => '!', 'match' => 'stock-alerts.*'],
                 ['route' => 'stock-movement-requests.index', 'label' => 'Stock Approvals', 'icon' => '✓', 'match' => 'stock-movement-requests.*', 'roles' => ['admin', 'manager']],
@@ -61,6 +75,7 @@
                 ['route' => 'product-categories.index', 'label' => 'Product Categories', 'icon' => '◇', 'match' => 'product-categories.*', 'roles' => ['admin']],
                 ['route' => 'units-of-measure.index', 'label' => 'Units of Measure', 'icon' => '#', 'match' => 'units-of-measure.*', 'roles' => ['admin']],
                 ['route' => 'users.index', 'label' => 'Users', 'icon' => '◈', 'match' => 'users.*', 'roles' => ['admin', 'manager']],
+                ['route' => 'account.edit', 'label' => 'My Account', 'icon' => '⚙', 'match' => 'account.*'],
             ];
 
             $systemNavigation = array_filter(
@@ -73,9 +88,12 @@
         <ul class="system-nav-list">
             @foreach ($systemNavigation as $item)
                 <li>
-                    <a href="{{ route($item['route']) }}" class="system-link {{ request()->routeIs($item['match']) ? 'active' : '' }}" onclick="document.querySelector('.system-sidebar').classList.remove('open')">
+                    <a href="{{ route($item['route']) }}" class="system-link {{ request()->routeIs(explode('|', $item['match'])) ? 'active' : '' }}" onclick="document.querySelector('.system-sidebar').classList.remove('open')">
                         <span class="system-link-icon">{{ $item['icon'] }}</span>
                         <span>{{ $item['label'] }}</span>
+                        @if (!empty($item['badge']))
+                            <span class="system-link-badge">{{ $item['badge'] }}</span>
+                        @endif
                     </a>
                 </li>
             @endforeach

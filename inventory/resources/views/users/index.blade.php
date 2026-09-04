@@ -39,6 +39,14 @@
                         <td>
                             <div class="actions">
                                 @if ($user->id !== auth()->id())
+                                    <a href="{{ route('users.edit', $user) }}" class="btn btn-secondary">
+                                        Edit
+                                    </a>
+
+                                    <a href="{{ route('users.reset-password', $user) }}" class="btn btn-secondary">
+                                        Reset Password
+                                    </a>
+
                                     @if ($user->is_active)
                                         <form action="{{ route('users.deactivate', $user) }}"
                                               method="POST"
@@ -58,6 +66,10 @@
                                             </button>
                                         </form>
                                     @endif
+                                @else
+                                    <a href="{{ route('account.edit') }}" class="btn btn-secondary">
+                                        My Account
+                                    </a>
                                 @endif
                             </div>
                         </td>

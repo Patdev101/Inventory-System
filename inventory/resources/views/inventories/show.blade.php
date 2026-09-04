@@ -95,6 +95,45 @@
         color: #6b7280;
     }
 
+    .transfer-request-box {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 10px;
+        padding: 18px;
+        margin-bottom: 25px;
+        color: #78350f;
+    }
+
+    .transfer-request-form {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .transfer-request-form .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .transfer-request-form label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .transfer-request-form .filter-input {
+        width: 100%;
+        padding: 9px 11px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        background: white;
+        box-sizing: border-box;
+    }
+
     @media (max-width: 1000px) {
         .inventory-summary {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -278,6 +317,100 @@
     </div>
 
 </div>
+
+
+{{-- =========================
+     REQUEST TRANSFER
+     (only when this location is out of stock and another
+     location in the same company currently has it)
+========================= --}}
+
+@if ($inventory->isOutOfStock() && $transferCandidates->count())
+
+    <div class="transfer-request-box">
+
+        <strong>
+            📦 Out of stock — request a transfer
+        </strong>
+
+        <p style="margin: 6px 0 14px; color: #92400e;">
+            {{ $inventory->location?->name }} has none of this product, but
+            {{ $transferCandidates->count() }} other location(s) in the
+            same company do. Request stock be moved in.
+        </p>
+
+        <form
+            action="{{ route('inventories.request-transfer', $inventory) }}"
+            method="POST"
+            class="transfer-request-form"
+        >
+
+            @csrf
+
+            <div class="filter-group">
+                <label for="source_location_id">From location</label>
+                <select
+                    id="source_location_id"
+                    name="source_location_id"
+                    class="filter-input"
+                    required
+                >
+                    <option value="">-- Select location --</option>
+
+                    @foreach ($transferCandidates as $candidate)
+                        <option value="{{ $candidate->location_id }}">
+                            {{ $candidate->location?->name ?? 'Location #' . $candidate->location_id }}
+                            ({{ number_format($candidate->getBaseQuantityValue(), 4) }} base units available)
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="product_unit_id">Unit</label>
+                <select
+                    id="product_unit_id"
+                    name="product_unit_id"
+                    class="filter-input"
+                    required
+                >
+                    <option value="">-- Select unit --</option>
+
+                    @foreach ($productUnits as $unit)
+                        <option value="{{ $unit->id }}">
+                            {{ $unit->unitOfMeasure?->name }}
+                            ({{ $unit->unitOfMeasure?->code }})
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="transfer_quantity">Quantity</label>
+                <input
+                    type="number"
+                    id="transfer_quantity"
+                    name="quantity"
+                    class="filter-input"
+                    min="0.0001"
+                    step="0.0001"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                @if (auth()->user()->hasRole('admin', 'manager'))
+                    Transfer Now
+                @else
+                    Request Transfer
+                @endif
+            </button>
+
+        </form>
+
+    </div>
+
+@endif
 
 
 {{-- =========================

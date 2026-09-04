@@ -1,59 +1,132 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Inventory System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 app that manages the product catalog, pricing, stock levels, and
+inter-location transfers for the business. It exposes a token-authenticated
+API that the separate **POS System** (`../possystem`) reads from at checkout
+time — the Inventory app is the single source of truth for products,
+pricing, and stock; the POS never stores its own copy of product data.
 
-## About Laravel
+## Setup
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+```
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Default seeded accounts (see `database/seeders/DatabaseSeeder.php`), all
+with password `password`:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Role    | Email               |
+|---------|---------------------|
+| Admin   | test@example.com    |
+| Manager | manager@example.com |
+| Staff   | staff@example.com   |
 
-## Learning Laravel
+### Key `.env` values
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+| Variable               | Purpose                                                                 |
+|-------------------------|-------------------------------------------------------------------------|
+| `DB_CONNECTION=sqlsrv`  | Production/dev DB is Microsoft SQL Server. Tests use in-memory SQLite (`phpunit.xml`), so migrations must stay SQL Server-compatible (no `restrictOnDelete()` — use `noActionOnDelete()`). |
+| `INVENTORY_API_TOKEN`   | Bearer token the POS app must send on every request to `/api/*`. Must match the POS's `INVENTORY_API_TOKEN`. |
+| `VAT_RATE`              | VAT percentage shown in the product Pricing form's breakdown (`config/pricing.php`). **Must be kept in sync with the POS's `POS_TAX_RATE`** — they're separate apps with separate config, nothing enforces they match. |
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Roles
 
-## Laravel Sponsors
+Three roles (`App\Models\User::ROLE_ADMIN|ROLE_MANAGER|ROLE_STAFF`), enforced
+via the `role:` route middleware:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- **Admin** — full access, including deleting products/inventory and
+  managing companies/units of measure.
+- **Manager** — everything except admin-only destructive actions; approves
+  or rejects staff-submitted stock movement/transfer requests.
+- **Staff** — can view everything, add/adjust stock, and request transfers,
+  but every stock-changing action they submit is queued as a
+  `StockMovementRequest` pending manager/admin approval rather than applied
+  immediately.
 
-### Premium Partners
+## Products & Pricing
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Each product has a `base_unit` (the smallest unit stock is tracked in, e.g.
+Piece) and any number of `product_units` (e.g. Box = 12 base units, Case = 6
+base units), each with a `conversion_factor`.
 
-## Contributing
+**`cost_price` and `selling_price` are always entered per base unit.** If
+you paid ₱200 for a Box of 12, the cost price to enter is `200 / 12 = 16.67`
+— the Add/Edit Product form has a **cost price helper** (yellow box) that
+does this division for you: enter what you paid and which unit it was for,
+and it fills in the per-base-unit cost.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Two pricing methods (`pricing_method`):
 
-## Code of Conduct
+- **Manual** — you type the selling price directly.
+- **Markup** — you enter cost price + markup %, and the selling price is
+  computed as `cost_price + (cost_price × markup% / 100)`. This is always
+  **recalculated server-side** in `ProductController` — the browser's live
+  preview is a convenience only, never trusted.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The Pricing section also shows, live as you type:
 
-## Security Vulnerabilities
+- **Expected Profit / Profit Margin** — `selling_price - cost_price` and
+  `(profit / selling_price) × 100` (both `null`-safe: no cost price or a
+  zero selling price never divides by zero).
+- **VAT breakdown** — `selling_price` is **VAT-inclusive** (it's the exact
+  shelf price the POS charges — VAT is disclosed, never added on top,
+  matching how Jollibee/supermarket receipts work in the Philippines). This
+  box shows `Subtotal (VAT-exclusive) + VAT = Selling Price` using the
+  `VAT_RATE` config value, so it's clear why the numbers work the way they
+  do before the price ever reaches the POS.
+- **Price by Unit** — the same cost/selling price multiplied out for every
+  configured unit (e.g. "Box: Cost ₱200.00 — Sells ₱300.00"), so a
+  per-piece price doesn't get mistaken for a per-box price.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Inventory & Transfers
 
-## License
+- **Inventory** records are per product **and** location, tracked in base
+  units (`base_quantity`) with a display `quantity`/`conversion_factor` for
+  whatever unit was last used.
+- **Transfer Inventory** (admin/manager) moves stock between two locations.
+  The destination is picked by **location**, not by an existing inventory
+  row — if that location has never stocked the product before, the
+  inventory record is created automatically on transfer.
+- **Request Transfer** — when an inventory record is at 0 stock, its detail
+  page shows a panel to request stock from another location in the *same
+  company* that currently has it. Staff requests queue for approval
+  (`StockMovementRequest` with `type = 'transfer'`); admin/manager requests
+  execute immediately. Both paths share the exact same transfer math via
+  `InventoryMovementService::transferStock()`, so there's no risk of the
+  two flows computing different results.
+- **Stock Approvals** page lists pending stock-in/out/transfer requests for
+  admin/manager to approve or reject.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Auto-refresh
+
+The Dashboard and Inventory list pages reload themselves every 20 seconds
+(paused while the tab isn't visible, scroll position preserved) so stock
+changes made from the POS side show up without a manual refresh. Opt in on
+any Blade view with `@section('autoRefreshSeconds', 20)`. The Inventory
+*detail* page is deliberately excluded since it hosts the active Request
+Transfer form — an auto-reload there could wipe in-progress input.
+
+## API (consumed by the POS)
+
+Protected by the `inventory.api-token` middleware (bearer token = `.env`
+`INVENTORY_API_TOKEN`):
+
+- `GET /api/products` — active products with pricing, units, and
+  per-location stock. `selling_price` is unchanged for POS compatibility;
+  `cost_price`, `markup_percentage`, `pricing_method`, and the computed
+  `profit`/`profit_margin` are also included but the POS never reads them.
+- `GET /api/locations`
+- `POST /api/inventory/out` / `POST /api/inventory/in` — used by the POS at
+  checkout and on void/refund respectively.
+
+## Testing
+
+```bash
+php artisan test
+```
+
+Runs against an in-memory SQLite database (see `phpunit.xml`) — migrations
+must work on both SQLite (tests) and SQL Server (real deployment).

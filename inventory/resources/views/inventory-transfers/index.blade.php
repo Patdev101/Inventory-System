@@ -104,14 +104,25 @@
         </p>
     </div>
 
-    @if (auth()->user()->hasRole('admin', 'manager'))
-    <a
-        href="{{ route('inventory-transfers.create') }}"
-        class="btn btn-primary"
-    >
-        Transfer Inventory
-    </a>
-    @endif
+    <div style="display: flex; gap: 10px;">
+
+        <a
+            href="{{ route('inventory-transfers.pending-audits') }}"
+            class="btn btn-secondary"
+        >
+            Audit Transfers
+        </a>
+
+        @if (auth()->user()->hasRole('admin', 'manager'))
+        <a
+            href="{{ route('inventory-transfers.create') }}"
+            class="btn btn-primary"
+        >
+            Transfer Inventory
+        </a>
+        @endif
+
+    </div>
 
 </div>
 
@@ -124,6 +135,9 @@
             method="GET"
             action="{{ route('inventory-transfers.index') }}"
         >
+
+            <input type="hidden" name="sort" value="{{ $sort }}">
+            <input type="hidden" name="direction" value="{{ $direction }}">
 
             <div style="
                 display: flex;
@@ -206,15 +220,55 @@
 
                 <thead>
 
+                    @php
+                        // Builds the href for a sortable header: clicking a
+                        // column that isn't currently sorted starts it at
+                        // ascending; clicking the already-active column
+                        // flips the direction. Search term and pagination
+                        // page reset (new sort = back to page 1) are
+                        // preserved automatically since we only touch
+                        // 'sort'/'direction' in the query string.
+                        $sortLink = function (string $column) use ($sort, $direction) {
+                            $nextDirection = ($sort === $column && $direction === 'asc') ? 'desc' : 'asc';
+
+                            return request()->fullUrlWithQuery([
+                                'sort' => $column,
+                                'direction' => $nextDirection,
+                                'page' => null,
+                            ]);
+                        };
+
+                        $sortIndicator = function (string $column) use ($sort, $direction) {
+                            if ($sort !== $column) {
+                                return '';
+                            }
+
+                            return $direction === 'asc' ? ' ▲' : ' ▼';
+                        };
+                    @endphp
+
                     <tr>
                         <th>ID</th>
-                        <th>Date</th>
+                        <th>
+                            <a href="{{ $sortLink('created_at') }}" style="color: inherit; text-decoration: none;">
+                                Date{{ $sortIndicator('created_at') }}
+                            </a>
+                        </th>
                         <th>Product</th>
-                        <th>From</th>
-                        <th>To</th>
+                        <th>
+                            <a href="{{ $sortLink('from_location') }}" style="color: inherit; text-decoration: none;">
+                                From{{ $sortIndicator('from_location') }}
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ $sortLink('to_location') }}" style="color: inherit; text-decoration: none;">
+                                To{{ $sortIndicator('to_location') }}
+                            </a>
+                        </th>
                         <th>Transfer Quantity</th>
                         <th>Base Quantity</th>
                         <th>Reference</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
 
@@ -263,14 +317,27 @@
                             </td>
 
                             <td>
+                                @if ($transfer->status === 'pending')
+                                    <span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">Pending</span>
+                                @elseif ($transfer->status === 'rejected')
+                                    <span style="background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">Rejected</span>
+                                @else
+                                    <span style="background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">Completed</span>
+                                @endif
+                            </td>
 
+                            <td>
+                                {{-- Audit + Receive both require the assigned receiver and
+                                     live on the show page, not here — a single "Receive"
+                                     button on the list would skip the audit step and let
+                                     anyone attempt it regardless of role. --}}
                                 <a
                                     href="{{ route('inventory-transfers.show', $transfer) }}"
                                     class="btn btn-secondary"
+                                    style="padding: 4px 8px; font-size: 12px;"
                                 >
                                     View
                                 </a>
-
                             </td>
 
                         </tr>

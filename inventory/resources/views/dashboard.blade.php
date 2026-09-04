@@ -2,6 +2,8 @@
 
 @section('title', 'Dashboard')
 
+@section('autoRefreshSeconds', 20)
+
 @section('content')
 
     <style>

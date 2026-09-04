@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
@@ -46,8 +47,13 @@ Route::post('/logout', [
 
 /*
 |--------------------------------------------------------------------------
-| Password Reset
+| Forgot Password
 |--------------------------------------------------------------------------
+|
+| This is a local/internal system — there is no mail service wired up to
+| deliver reset links. Password resets are always performed by an admin
+| from User Management (see UserController::resetPassword). This route
+| just shows guests where to go instead of a reset form.
 */
 
 Route::get('/forgot-password', [
@@ -55,27 +61,38 @@ Route::get('/forgot-password', [
     'create',
 ])->name('password.request');
 
-Route::post('/forgot-password', [
-    PasswordResetController::class,
-    'store',
-])->name('password.email');
-
-Route::get('/reset-password/{token}', [
-    PasswordResetController::class,
-    'edit',
-])->name('password.reset');
-
-Route::post('/reset-password', [
-    PasswordResetController::class,
-    'update',
-])->name('password.update');
-
 Route::middleware('auth')->group(function () {
 
 Route::get('/dashboard', [
     DashboardController::class,
     'index',
 ])->name('dashboard');
+
+
+/*
+|--------------------------------------------------------------------------
+| My Account
+|--------------------------------------------------------------------------
+|
+| Every authenticated user manages their own email/password here,
+| regardless of role. Changing another user's account never goes through
+| these routes — only through Admin User Management below.
+*/
+
+Route::get('/account', [
+    AccountController::class,
+    'edit',
+])->name('account.edit');
+
+Route::put('/account/email', [
+    AccountController::class,
+    'updateEmail',
+])->name('account.email.update');
+
+Route::put('/account/password', [
+    AccountController::class,
+    'updatePassword',
+])->name('account.password.update');
 
 Route::get('/stock-alerts', [
     StockAlertController::class,
@@ -110,7 +127,7 @@ Route::middleware('role:admin,manager')->group(function () {
 Route::middleware('role:admin,manager')->group(function () {
 
     Route::resource('users', UserController::class)
-        ->only(['index', 'create', 'store']);
+        ->only(['index', 'create', 'store', 'edit', 'update']);
 
     Route::patch('/users/{user}/deactivate', [
         UserController::class,
@@ -121,6 +138,16 @@ Route::middleware('role:admin,manager')->group(function () {
         UserController::class,
         'activate',
     ])->name('users.activate');
+
+    Route::get('/users/{user}/reset-password', [
+        UserController::class,
+        'showResetPassword',
+    ])->name('users.reset-password');
+
+    Route::post('/users/{user}/reset-password', [
+        UserController::class,
+        'resetPassword',
+    ])->name('users.reset-password.store');
 
 });
 
@@ -285,6 +312,11 @@ Route::middleware('role:admin,manager,staff')->group(function () {
     Route::resource('inventories', InventoryController::class)
         ->only(['create', 'store', 'edit', 'update']);
 
+    Route::post(
+        '/inventories/{inventory}/request-transfer',
+        [InventoryController::class, 'requestTransfer']
+    )->name('inventories.request-transfer');
+
 });
 
 Route::middleware('role:admin')->group(function () {
@@ -332,6 +364,10 @@ Route::get(
 | Registered before the show route for the same reason as above:
 | "inventory-transfers/create" must be matched before
 | "inventory-transfers/{transfer}".
+|
+| Auditing and receiving a transfer (the two-phase QA workflow) is
+| restricted to admin/manager/staff — the same set of roles that can
+| be assigned as a receiver — and must stay inside the auth group.
 */
 
 Route::middleware('role:admin,manager')->group(function () {
@@ -363,11 +399,36 @@ Route::get(
 )->name('inventory-transfers.index');
 
 Route::get(
+    '/inventory-transfers/pending-audits',
+    [InventoryTransferController::class, 'pendingAudits']
+)->name('inventory-transfers.pending-audits');
+
+Route::get(
     '/inventory-transfers/{transfer}',
     [
         InventoryTransferController::class,
         'show',
     ]
 )->name('inventory-transfers.show');
+
+Route::middleware('role:admin,manager,staff')->group(function () {
+
+    Route::patch(
+        '/inventory-transfers/{transfer}/audit',
+        [
+            InventoryTransferController::class,
+            'audit',
+        ]
+    )->name('inventory-transfers.audit');
+
+    Route::patch(
+        '/inventory-transfers/{transfer}/receive',
+        [
+            InventoryTransferController::class,
+            'receive',
+        ]
+    )->name('inventory-transfers.receive');
+
+});
 
 });

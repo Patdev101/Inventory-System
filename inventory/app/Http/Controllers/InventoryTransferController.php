@@ -3,15 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventory;
-use App\Models\InventoryTransaction;
 use App\Models\InventoryTransfer;
-use App\Models\ProductUnit;
+use App\Models\Location;
+use App\Models\User;
+use App\Services\InventoryMovementService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Auth;
 
 class InventoryTransferController extends Controller
 {
+    public function __construct(
+        private readonly InventoryMovementService $movementService
+    ) {
+    }
+
     /**
      * Show transfer history.
      */
@@ -19,23 +24,48 @@ class InventoryTransferController extends Controller
     {
         $search = trim((string) $request->input('search'));
 
-        $transfers = InventoryTransfer::with([
-            'product',
-            'sourceInventory.location',
-            'destinationInventory.location',
-            'productUnit.unitOfMeasure',
-        ])
+        // Sorting: default is newest first, same as before. "From
+        // location" / "To location" are also sortable — these live on
+        // related tables (inventory_transfers -> inventories ->
+        // locations), so Eloquent's normal orderBy() can't reach them
+        // without a join. Two left joins (aliased per side, since both
+        // source and destination point at the same inventories/locations
+        // tables) let us sort by the joined location name directly.
+        $sort = $request->input('sort', 'created_at');
+        $direction = strtolower((string) $request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $sortable = [
+            'created_at'    => 'inventory_transfers.created_at',
+            'from_location' => 'source_locations.name',
+            'to_location'   => 'destination_locations.name',
+        ];
+
+        $sortColumn = $sortable[$sort] ?? $sortable['created_at'];
+
+        $transfers = InventoryTransfer::query()
+            ->select('inventory_transfers.*')
+            ->with([
+                'product',
+                'sourceInventory.location',
+                'destinationInventory.location',
+                'productUnit.unitOfMeasure',
+                'receiver',
+            ])
+            ->leftJoin('inventories as source_inventories', 'source_inventories.id', '=', 'inventory_transfers.source_inventory_id')
+            ->leftJoin('locations as source_locations', 'source_locations.id', '=', 'source_inventories.location_id')
+            ->leftJoin('inventories as destination_inventories', 'destination_inventories.id', '=', 'inventory_transfers.destination_inventory_id')
+            ->leftJoin('locations as destination_locations', 'destination_locations.id', '=', 'destination_inventories.location_id')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
 
                     $query->where(
-                        'reference',
+                        'inventory_transfers.reference',
                         'like',
                         '%' . $search . '%'
                     )
 
                     ->orWhere(
-                        'notes',
+                        'inventory_transfers.notes',
                         'like',
                         '%' . $search . '%'
                     )
@@ -51,40 +81,30 @@ class InventoryTransferController extends Controller
                         }
                     )
 
-                    ->orWhereHas(
-                        'sourceInventory.location',
-                        function ($query) use ($search) {
-                            $query->where(
-                                'name',
-                                'like',
-                                '%' . $search . '%'
-                            )
-                            ->orWhere(
-                                'code',
-                                'like',
-                                '%' . $search . '%'
-                            );
-                        }
+                    ->orWhere(
+                        'source_locations.name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'source_locations.code',
+                        'like',
+                        '%' . $search . '%'
                     )
 
-                    ->orWhereHas(
-                        'destinationInventory.location',
-                        function ($query) use ($search) {
-                            $query->where(
-                                'name',
-                                'like',
-                                '%' . $search . '%'
-                            )
-                            ->orWhere(
-                                'code',
-                                'like',
-                                '%' . $search . '%'
-                            );
-                        }
+                    ->orWhere(
+                        'destination_locations.name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'destination_locations.code',
+                        'like',
+                        '%' . $search . '%'
                     );
                 });
             })
-            ->latest()
+            ->orderBy($sortColumn, $direction)
             ->paginate(10)
             ->withQueryString();
 
@@ -92,8 +112,36 @@ class InventoryTransferController extends Controller
             'inventory-transfers.index',
             compact(
                 'transfers',
-                'search'
+                'search',
+                'sort',
+                'direction'
             )
+        );
+    }
+
+    /**
+     * Transfers assigned to the current user that are still awaiting
+     * audit or receipt. This is the actionable queue — distinct from
+     * index(), which is a full read-only history log of every transfer
+     * regardless of who's involved or what state it's in.
+     */
+    public function pendingAudits(Request $request)
+    {
+        $transfers = InventoryTransfer::with([
+            'product',
+            'sourceInventory.location',
+            'destinationInventory.location',
+            'productUnit.unitOfMeasure',
+        ])
+            ->where('receiver_id', Auth::id())
+            ->where('status', 'pending')
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view(
+            'inventory-transfers.pending',
+            compact('transfers')
         );
     }
 
@@ -112,9 +160,28 @@ class InventoryTransferController extends Controller
             ->orderBy('id')
             ->get();
 
+        /*
+         * Destination is a location, not an existing inventory record — a
+         * location with zero (or no) stock of the product yet is exactly
+         * where you'd want to transfer stock to. The inventory record is
+         * created automatically on transfer if it doesn't exist yet.
+         */
+        $locations = Location::with('company')
+            ->orderBy('name')
+            ->get();
+
+        /*
+         * Users who can be assigned as the receiver for a transfer.
+         * NOTE: not filtered by role yet — your users table doesn't have
+         * a confirmed `role` column, so every user is listed and the
+         * manager/staff designation is picked separately per transfer via
+         * receiver_role. Tighten this later if/when you add real roles.
+         */
+        $receivers = User::orderBy('name')->get();
+
         return view(
             'inventory-transfers.create',
-            compact('inventories')
+            compact('inventories', 'locations', 'receivers')
         );
     }
 
@@ -132,6 +199,9 @@ class InventoryTransferController extends Controller
             'destinationInventory.product',
             'destinationInventory.location',
             'destinationInventory.productUnit.unitOfMeasure',
+            'receiver',
+            'auditedBy',
+            'receivedBy',
         ]);
 
         return view(
@@ -140,32 +210,57 @@ class InventoryTransferController extends Controller
         );
     }
 
-    /**
-     * Transfer stock between locations.
+       /**
+     * Create pending transfers (one per checklist item) awaiting
+     * receiver audit.
+     *
+     * Stock leaves the source immediately for each item, but does not
+     * reach the destination until the assigned receiver passes the audit
+     * and marks it received (see audit() and receive() below). All items
+     * in the batch share the same destination, receiver, reference, and
+     * notes; each item is still its own InventoryTransfer row so it can
+     * be audited/received independently if needed.
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'source_inventory_id' => [
+            'destination_location_id' => [
+                'required',
+                'integer',
+                'exists:locations,id',
+            ],
+
+            'receiver_id' => [
+                'required',
+                'integer',
+                'exists:users,id',
+            ],
+
+            'receiver_role' => [
+                'required',
+                'string',
+                'in:admin,manager,staff',
+            ],
+
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'items.*.source_inventory_id' => [
                 'required',
                 'integer',
                 'exists:inventories,id',
             ],
 
-            'destination_inventory_id' => [
-                'required',
-                'integer',
-                'exists:inventories,id',
-                'different:source_inventory_id',
-            ],
-
-            'product_unit_id' => [
+            'items.*.product_unit_id' => [
                 'required',
                 'integer',
                 'exists:product_units,id',
             ],
 
-            'quantity' => [
+            'items.*.quantity' => [
                 'required',
                 'numeric',
                 'gt:0',
@@ -183,341 +278,99 @@ class InventoryTransferController extends Controller
             ],
         ]);
 
-        DB::transaction(function () use ($validated) {
-
-            $inventoryIds = [
-                (int) $validated['source_inventory_id'],
-                (int) $validated['destination_inventory_id'],
-            ];
-
-            sort($inventoryIds);
-
-            $lockedInventories = Inventory::with([
-                'product',
-                'location',
-                'productUnit.unitOfMeasure',
-            ])
-                ->whereIn('id', $inventoryIds)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-
-            $sourceInventory = $lockedInventories->get(
-                (int) $validated['source_inventory_id']
+        foreach ($validated['items'] as $item) {
+            $this->movementService->initiateTransfer(
+                sourceInventoryId: (int) $item['source_inventory_id'],
+                destinationLocationId: (int) $validated['destination_location_id'],
+                productUnitId: (int) $item['product_unit_id'],
+                quantity: (float) $item['quantity'],
+                receiverId: (int) $validated['receiver_id'],
+                receiverRole: $validated['receiver_role'],
+                reference: $validated['reference'] ?? null,
+                notes: $validated['notes'] ?? null
             );
-
-            $destinationInventory = $lockedInventories->get(
-                (int) $validated['destination_inventory_id']
-            );
-
-            if (!$sourceInventory || !$destinationInventory) {
-                throw ValidationException::withMessages([
-                    'source_inventory_id' =>
-                        'The selected inventory records could not be found.',
-                ]);
-            }
-
-            if (
-                (int) $sourceInventory->product_id !==
-                (int) $destinationInventory->product_id
-            ) {
-                throw ValidationException::withMessages([
-                    'destination_inventory_id' =>
-                        'The source and destination must contain the same product.',
-                ]);
-            }
-
-            $productUnit = ProductUnit::with(
-                'unitOfMeasure'
-            )
-                ->whereKey(
-                    $validated['product_unit_id']
-                )
-                ->where(
-                    'product_id',
-                    $sourceInventory->product_id
-                )
-                ->first();
-
-            if (!$productUnit) {
-                throw ValidationException::withMessages([
-                    'product_unit_id' =>
-                        'The selected unit does not belong to this product.',
-                ]);
-            }
-
-            $conversionFactor =
-                (float) $productUnit->conversion_factor;
-
-            if ($conversionFactor <= 0) {
-                throw ValidationException::withMessages([
-                    'product_unit_id' =>
-                        'The selected unit has an invalid conversion factor.',
-                ]);
-            }
-
-            $quantity =
-                (float) $validated['quantity'];
-
-            $baseQuantity =
-                $quantity * $conversionFactor;
-
-            $sourceBaseQuantity =
-                $this->resolveBaseQuantity(
-                    $sourceInventory
-                );
-
-            if (
-                $sourceBaseQuantity
-                - $baseQuantity
-                < -0.0000001
-            ) {
-                throw ValidationException::withMessages([
-                    'quantity' =>
-                        'Insufficient stock at the source location.',
-                ]);
-            }
-
-            $newSourceBaseQuantity =
-                $sourceBaseQuantity
-                - $baseQuantity;
-
-            if ($newSourceBaseQuantity < 0) {
-                $newSourceBaseQuantity = 0;
-            }
-
-            $destinationBaseQuantity =
-                $this->resolveBaseQuantity(
-                    $destinationInventory
-                );
-
-            $newDestinationBaseQuantity =
-                $destinationBaseQuantity
-                + $baseQuantity;
-
-            $sourceConversionFactor =
-                $this->getInventoryConversionFactor(
-                    $sourceInventory
-                );
-
-            $sourceDisplayQuantity =
-                $newSourceBaseQuantity
-                / $sourceConversionFactor;
-
-            $destinationDisplayQuantity =
-                $newDestinationBaseQuantity
-                / $conversionFactor;
-
-            $sourceInventory->update([
-                'quantity' =>
-                    $sourceDisplayQuantity,
-
-                'base_quantity' =>
-                    $newSourceBaseQuantity,
-            ]);
-
-            $destinationInventory->update([
-                'product_unit_id' =>
-                    $productUnit->id,
-
-                'conversion_factor' =>
-                    $conversionFactor,
-
-                'quantity' =>
-                    $destinationDisplayQuantity,
-
-                'base_quantity' =>
-                    $newDestinationBaseQuantity,
-            ]);
-
-            $transfer = InventoryTransfer::create([
-                'source_inventory_id' =>
-                    $sourceInventory->id,
-
-                'destination_inventory_id' =>
-                    $destinationInventory->id,
-
-                'product_id' =>
-                    $sourceInventory->product_id,
-
-                'product_unit_id' =>
-                    $productUnit->id,
-
-                'conversion_factor' =>
-                    $conversionFactor,
-
-                'quantity' =>
-                    $quantity,
-
-                'base_quantity' =>
-                    $baseQuantity,
-
-                'reference' =>
-                    $validated['reference']
-                    ?? 'Inventory transfer',
-
-                'notes' =>
-                    $validated['notes']
-                    ?? null,
-            ]);
-
-            $this->createTransaction(
-                inventory: $sourceInventory,
-                type: 'out',
-                quantity: $quantity,
-                baseQuantity: $baseQuantity,
-                productUnitId: $productUnit->id,
-                conversionFactor: $conversionFactor,
-                reference:
-                    'Transfer #' . $transfer->id
-                    . ' to '
-                    . $destinationInventory->location->name,
-                notes:
-                    $validated['notes'] ?? null
-            );
-
-            $this->createTransaction(
-                inventory: $destinationInventory,
-                type: 'in',
-                quantity: $quantity,
-                baseQuantity: $baseQuantity,
-                productUnitId: $productUnit->id,
-                conversionFactor: $conversionFactor,
-                reference:
-                    'Transfer #' . $transfer->id
-                    . ' from '
-                    . $sourceInventory->location->name,
-                notes:
-                    $validated['notes'] ?? null
-            );
-        });
+        }
 
         return redirect()
             ->route('inventory-transfers.index')
             ->with(
                 'success',
-                'Inventory transferred successfully.'
+                count($validated['items']) . ' transfer(s) created and stock deducted from source. Awaiting receiver audit.'
             );
     }
 
     /**
-     * Resolve inventory stock in base units.
+     * Receiver inspects the transferred items and marks pass/fail.
      */
-    private function resolveBaseQuantity(
-        Inventory $inventory
-    ): float {
-        $baseQuantity =
-            (float) $inventory->base_quantity;
-
-        if ($baseQuantity > 0) {
-            return $baseQuantity;
-        }
-
-        $quantity =
-            (float) $inventory->quantity;
-
-        if ($quantity <= 0) {
-            return 0;
-        }
-
-        $conversionFactor =
-            $this->getInventoryConversionFactor(
-                $inventory
-            );
-
-        return $quantity * $conversionFactor;
-    }
-
-    /**
-     * Get current inventory display conversion factor.
-     */
-    private function getInventoryConversionFactor(
-        Inventory $inventory
-    ): float {
-        $conversionFactor =
-            (float) $inventory->conversion_factor;
-
-        return $conversionFactor > 0
-            ? $conversionFactor
-            : 1;
-    }
-
-    /**
-     * Create inventory transaction.
-     */
-    private function createTransaction(
-        Inventory $inventory,
-        string $type,
-        float $quantity,
-        float $baseQuantity,
-        ?int $productUnitId = null,
-        ?float $conversionFactor = null,
-        ?string $reference = null,
-        ?string $notes = null
-    ): InventoryTransaction {
-
-        if (!in_array(
-            $type,
-            ['in', 'out'],
-            true
-        )) {
-            throw new \InvalidArgumentException(
-                'Invalid inventory transaction type.'
+    public function audit(Request $request, InventoryTransfer $transfer)
+    {
+        if ($transfer->status !== 'pending') {
+            return back()->with(
+                'error',
+                'This transfer is not awaiting audit.'
             );
         }
 
-        if ($quantity <= 0) {
-            throw new \InvalidArgumentException(
-                'Transaction quantity must be greater than zero.'
-            );
+        if ((int) $transfer->receiver_id !== (int) Auth::id()) {
+            abort(403, 'Only the assigned receiver can audit this transfer.');
         }
 
-        if ($baseQuantity <= 0) {
-            throw new \InvalidArgumentException(
-                'Transaction base quantity must be greater than zero.'
-            );
-        }
+        $validated = $request->validate([
+            'result' => [
+                'required',
+                'string',
+                'in:pass,fail',
+            ],
 
-        if (
-            $conversionFactor === null ||
-            $conversionFactor <= 0
-        ) {
-            throw new \InvalidArgumentException(
-                'Transaction conversion factor must be greater than zero.'
-            );
-        }
-
-        return InventoryTransaction::create([
-            'inventory_id' =>
-                $inventory->id,
-
-            'product_id' =>
-                $inventory->product_id,
-
-            'location_id' =>
-                $inventory->location_id,
-
-            'type' =>
-                $type,
-
-            'quantity' =>
-                $quantity,
-
-            'base_quantity' =>
-                $baseQuantity,
-
-            'product_unit_id' =>
-                $productUnitId,
-
-            'conversion_factor' =>
-                $conversionFactor,
-
-            'reference' =>
-                $reference,
-
-            'notes' =>
-                $notes,
+            'audit_notes' => [
+                'nullable',
+                'string',
+            ],
         ]);
+
+        if ($validated['result'] === 'fail') {
+            $this->movementService->reverseTransfer(
+                transfer: $transfer,
+                auditedByUserId: (int) Auth::id(),
+                auditNotes: $validated['audit_notes'] ?? null
+            );
+
+            return back()->with(
+                'success',
+                'Transfer marked as failed audit. Stock has been returned to the source location.'
+            );
+        }
+
+        $transfer->update([
+            'audit_status' => 'passed',
+            'audited_by' => Auth::id(),
+            'audited_at' => now(),
+            'audit_notes' => $validated['audit_notes'] ?? null,
+        ]);
+
+        return back()->with(
+            'success',
+            'Item passed audit. You can now mark it received.'
+        );
+    }
+
+    /**
+     * Credit destination stock once the transfer has passed audit.
+     */
+    public function receive(InventoryTransfer $transfer)
+    {
+        if ((int) $transfer->receiver_id !== (int) Auth::id()) {
+            abort(403, 'Only the assigned receiver can receive this transfer.');
+        }
+
+        $this->movementService->completeTransferReceipt(
+            transfer: $transfer,
+            receivedByUserId: (int) Auth::id()
+        );
+
+        return back()->with(
+            'success',
+            'Transfer received. Stock has been added to the destination location.'
+        );
     }
 }
