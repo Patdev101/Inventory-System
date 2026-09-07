@@ -12,11 +12,12 @@ use Illuminate\Validation\ValidationException;
 
 class InventoryMovementService
 {
-    public function addStock(
+        public function addStock(
         int $productId,
         int $locationId,
         int $productUnitId,
-        float $quantity
+        float $quantity,
+        ?string $reference = null
     ): Inventory {
         $product = Product::findOrFail($productId);
 
@@ -30,12 +31,18 @@ class InventoryMovementService
         $movementConversionFactor = (float) $productUnit->conversion_factor;
         $movementBaseQuantity = $quantity * $movementConversionFactor;
 
-        return DB::transaction(function () use (
-            $productId, $locationId, $productUnit, $quantity, $movementBaseQuantity, $movementConversionFactor
+               return DB::transaction(function () use (
+            $productId,
+            $locationId,
+            $productUnit,
+            $quantity,
+            $movementBaseQuantity,
+            $movementConversionFactor,
+            $reference
         ) {
             $inventory = Inventory::where('product_id', $productId)
                 ->where('location_id', $locationId)
-                ->lockForUpdate()
+                ->lockForUpdate()   
                 ->first();
 
             if ($inventory) {
@@ -58,14 +65,14 @@ class InventoryMovementService
                 ]);
             }
 
-            $this->createTransaction(
+                $this->createTransaction(
                 inventory: $inventory,
                 type: 'in',
                 quantity: $quantity,
                 baseQuantity: $movementBaseQuantity,
                 productUnitId: $productUnit->id,
                 conversionFactor: $movementConversionFactor,
-                reference: 'Inventory addition'
+                reference: $reference ?? 'Inventory addition'
             );
 
             return $inventory;

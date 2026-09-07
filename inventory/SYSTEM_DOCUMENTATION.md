@@ -4,7 +4,7 @@
 **Framework:** Laravel 12  
 **Database:** SQL Server  
 **Project path:** `C:\projects\inventory\inventory`  
-**Documentation date:** 2026-09-02
+**Documentation date:** 2026-09-04
 
 ## 1. System Purpose
 
@@ -63,6 +63,8 @@ The warehouse and stock-management foundation is approximately 90-95% complete f
 - POS installations can use this endpoint to resolve an administrator-defined
   fixed selling location; cashiers should not switch locations during normal
   sales.
+- Inventory transfers now support a checklist-based multi-item batch flow
+  with a two-phase audited receiver workflow (see Section 9.1).
 
 ### Remaining priority work
 
@@ -124,6 +126,9 @@ InventoryTransfer
   +-- Destination Inventory
   +-- Product
   +-- ProductUnit
+  +-- Receiver (User)
+  +-- Audited By (User)
+  +-- Received By (User)
 
 Inventory
   +-- StockAlerts
@@ -135,7 +140,7 @@ Inventory
 
 Location: `app/Models/User.php`
 
-The user model uses Laravel authentication and notifications. It supports session login, database notifications, and email notifications.
+The user model uses Laravel authentication and notifications. It supports session login, database notifications, and email notifications. Includes a real `role` attribute (`admin`, `manager`, `staff`) and a `hasRole()` helper used throughout the app's authorization checks and views.
 
 ### Company
 
@@ -263,6 +268,17 @@ Important fields:
 - `base_quantity`
 - `reference`
 - `notes`
+- `status` — `pending`, `completed`, or `rejected`
+- `received_at`
+- `received_by`
+- `receiver_id` — user assigned to inspect and receive the transfer
+- `receiver_role` — role of the assigned receiver at time of transfer (`admin`, `manager`, or `staff`)
+- `audit_status` — `pending`, `passed`, or `failed`
+- `audited_by`
+- `audited_at`
+- `audit_notes`
+
+Relationships: `sourceInventory`, `destinationInventory`, `product`, `productUnit`, `receiver`, `auditedBy`, `receivedBy`.
 
 ### StockAlert
 
@@ -368,34 +384,91 @@ Every successful movement updates inventory and creates an audit transaction in 
 
 ## 9. Inventory Transfer Workflow
 
-Controller: `app/Http/Controllers/InventoryTransferController.php`
+Controller: `app/Http/Controllers/InventoryTransferController.php`  
+Service: `app/Services/InventoryMovementService.php`
 
 Routes:
 
 ```text
-GET  /inventory-transfers
-GET  /inventory-transfers/create
-POST /inventory-transfers
-GET  /inventory-transfers/{transfer}
+GET    /inventory-transfers
+GET    /inventory-transfers/create
+POST   /inventory-transfers
+GET    /inventory-transfers/{transfer}
+PATCH  /inventory-transfers/{transfer}/audit
+PATCH  /inventory-transfers/{transfer}/receive
 ```
 
-Transfer processing:
+There are two transfer code paths in the service layer, kept intentionally separate:
 
-1. Validate source inventory, destination inventory, product unit, and quantity.
-2. Confirm source and destination are different records.
-3. Lock both inventory rows in consistent ID order.
-4. Confirm both inventories contain the same product.
-5. Confirm the selected product unit belongs to that product.
-6. Calculate base quantity from the selected unit.
-7. Confirm the source has enough base quantity.
-8. Decrease source base quantity.
-9. Increase destination base quantity.
-10. Create the transfer record.
-11. Create an OUT transaction for the source.
-12. Create an IN transaction for the destination.
-13. Commit the whole operation atomically.
+- **`transferStock()`** — the original single-step, immediate transfer (source and destination updated atomically in one call):
+  1. Validate source inventory, destination inventory, product unit, and quantity.
+  2. Confirm source and destination are different records.
+  3. Lock both inventory rows in consistent ID order.
+  4. Confirm both inventories contain the same product.
+  5. Confirm the selected product unit belongs to that product.
+  6. Calculate base quantity from the selected unit.
+  7. Confirm the source has enough base quantity.
+  8. Decrease source base quantity.
+  9. Increase destination base quantity.
+  10. Create the transfer record.
+  11. Create an OUT transaction for the source.
+  12. Create an IN transaction for the destination.
+  13. Commit the whole operation atomically.
 
-If any step fails, the transaction rolls back.
+  If any step fails, the transaction rolls back. This method is still present and unchanged; it is not currently invoked by the controller's `store()` action, but is retained for any other caller that needs an immediate, non-audited transfer.
+
+- **`initiateTransfer()` / `completeTransferReceipt()` / `reverseTransfer()`** — the two-phase audited workflow described in Section 9.1, which the controller's `store()`, `audit()`, and `receive()` actions use.
+
+### Batch checklist creation
+
+The create form (`resources/views/inventory-transfers/create.blade.php`) presents a checklist of all inventory with `base_quantity > 0`. The user checks one or more rows, selects a transfer unit and quantity per row, and picks a single shared destination location and receiver. On submit, `store()` validates an `items[]` array (`source_inventory_id`, `product_unit_id`, `quantity` per row) alongside the shared `destination_location_id`, `receiver_id`, and `receiver_role`, then loops over `items[]`, calling `initiateTransfer()` once per item. Each item becomes its own `InventoryTransfer` row and can be audited/received independently.
+
+Note: each `initiateTransfer()` call is independently transactional; a failure partway through a multi-item submission does not roll back items already created earlier in the same request.
+
+## 9.1 Audited Receiver Workflow
+
+Transfers created via `InventoryTransferController@store` are not credited to the destination immediately. Instead they go through a two-phase, audited receipt process so a designated person confirms the goods before stock counts change.
+
+### Phase 1 — Initiate (on transfer creation)
+
+`InventoryMovementService::initiateTransfer()`:
+
+1. Locks and validates the source inventory.
+2. Confirms destination is a different location.
+3. Validates the product unit and calculates base quantity.
+4. Confirms sufficient source stock.
+5. Deducts stock from the source immediately and creates an OUT transaction.
+6. Creates (or reuses) the destination inventory record at zero/unchanged stock — it is **not** credited yet.
+7. Creates the `InventoryTransfer` row with `status = pending`, `audit_status = pending`, and the assigned `receiver_id` / `receiver_role`.
+
+At this point stock has left the source but has not yet reached the destination — it is "in transit," represented only by the pending transfer record.
+
+### Phase 2a — Audit pass, then receive
+
+Only the assigned receiver (`transfer.receiver_id === auth()->id()`) may act on a pending transfer, enforced in `InventoryTransferController@audit` and `@receive`.
+
+- **Audit pass**: `InventoryTransferController@audit` sets `audit_status = passed`, `audited_by`, `audited_at`, and optional `audit_notes`. Stock is still not credited.
+- **Receive**: `InventoryMovementService::completeTransferReceipt()` — callable only once `audit_status = passed` — locks the destination inventory, credits `base_quantity`, creates an IN transaction, and sets `status = completed`, `received_by`, `received_at`.
+
+### Phase 2b — Audit fail (automatic reversal)
+
+If the receiver fails the audit, `InventoryMovementService::reverseTransfer()` runs instead:
+
+1. Locks the source inventory and adds the deducted `base_quantity` back.
+2. Creates an IN transaction on the source documenting the return, referencing the failed transfer.
+3. Sets `status = rejected`, `audit_status = failed`, `audited_by`, `audited_at`, `audit_notes`.
+
+No stock is left in limbo — a failed audit always fully reverses the source deduction in the same request.
+
+### Authorization
+
+- Creating a transfer (`create`, `store`): `role:admin,manager`.
+- Viewing transfer history and detail (`index`, `show`): any authenticated user.
+- Auditing and receiving (`audit`, `receive`): `role:admin,manager,staff` at the route level, further restricted in the controller so only the specific assigned `receiver_id` can act on that transfer — a staff member assigned as receiver on one transfer cannot audit or receive a different transfer assigned to someone else.
+
+### Known limitation
+
+`receiver_role` is captured as a snapshot of the receiver's role at transfer-creation time (from `users.role`), not re-validated against the user's current role at audit/receive time. If a user's role changes after being assigned as a receiver, the transfer still honors the original assignment by `receiver_id`.
 
 ## 10. Persistent Stock Alert Workflow
 
@@ -561,6 +634,10 @@ php artisan optimize:clear
 php artisan view:clear
 ```
 
+### SQL Server foreign key note
+
+When adding a nullable `foreignId` column to `users` on a table that already has another column cascading `SET NULL` to `users`, SQL Server rejects the migration with "may cause cycles or multiple cascade paths." Declare the column first without `constrained()`, then add the foreign key in a separate `Schema::table()` call using `->onDelete('no action')->onUpdate('no action')` instead of `nullOnDelete()`.
+
 ## 16. Local Development Commands
 
 Start Laravel:
@@ -620,7 +697,7 @@ Latest recorded result:
 11 assertions passed
 ```
 
-Additional tests should cover persistent alert creation, acknowledgement, resolution, severity changes, notification records, login credentials, and complete transfer behavior.
+Additional tests should cover persistent alert creation, acknowledgement, resolution, severity changes, notification records, login credentials, and complete transfer behavior, including the audited receiver workflow (audit pass/receive and audit fail/reversal paths).
 
 ## 18. Security and Production Requirements
 
@@ -677,6 +754,8 @@ Future changes must preserve these rules:
 10. Stock alerts use the same centralized status rules as inventory views.
 11. Historical transactions and resolved alerts should not be destroyed unnecessarily.
 12. New changes should extend existing models, services, controllers, and routes instead of duplicating business logic.
+13. Transfers created through the checklist form do not credit destination stock until the assigned receiver passes an audit and marks the transfer received — never bypass `audit_status = passed` when crediting destination inventory.
+14. A failed audit must always fully reverse the source deduction in the same request; no transfer should be left with stock deducted from the source but neither credited to the destination nor returned to the source.
 
 ## 21. Handoff Summary
 
@@ -691,3 +770,18 @@ This is an existing Laravel inventory application, not a blank project. The corr
 7. Run validation before declaring the feature complete.
 
 The most important implementation boundary is the inventory model's base-unit logic. Any feature involving quantities, stock status, alerts, transfers, reports, procurement, or notifications must use `base_quantity` rather than raw displayed quantities.
+
+## 22. Changelog
+
+### 2026-09-04 — Audited Receiver Workflow for Inventory Transfers
+
+Added a two-phase audited receipt process to the existing checklist-based batch transfer feature:
+
+- **Migration**: added `receiver_id`, `receiver_role`, `audit_status`, `audited_by`, `audited_at`, `audit_notes` to `inventory_transfers` (the pre-existing `status`, `received_at`, `received_by` columns from an earlier migration were reused rather than duplicated).
+- **Model**: `InventoryTransfer` fillable/casts updated; added `receiver()`, `auditedBy()`, `receivedBy()` relationships.
+- **Service**: `InventoryMovementService` gained `initiateTransfer()`, `completeTransferReceipt()`, and `reverseTransfer()`. The original `transferStock()`, `addStock()`, and `moveStock()` were not modified.
+- **Controller**: `InventoryTransferController@store` now loops over a submitted `items[]` array, calling `initiateTransfer()` per item instead of crediting destination stock immediately. Added `audit()` and `receive()` actions.
+- **Routes**: added `PATCH inventory-transfers/{transfer}/audit` and `PATCH inventory-transfers/{transfer}/receive`, both inside the `auth` middleware group with `role:admin,manager,staff`. Removed two pre-existing duplicate/unscoped `POST .../receive` routes that had accidentally been left outside the `auth` group.
+- **Views**: `create.blade.php` gained Receiver and Receiver Role fields (auto-filled from the selected receiver's `users.role`); `show.blade.php` gained a Receiving & Audit Status card with pass/fail and receive actions, visible only to the assigned receiver while the transfer is pending.
+
+See Section 9.1 for full workflow details.
