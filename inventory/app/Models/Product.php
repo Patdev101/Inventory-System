@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -19,6 +20,7 @@ class Product extends Model
         'product_category_id',
         'name',
         'sku',
+        'item_code',
         'description',
         'base_unit_id',
         'company_id',
@@ -28,6 +30,7 @@ class Product extends Model
         'cost_price',
         'markup_percentage',
         'pricing_method',
+        'image_path',
     ];
 
     protected $casts = [
@@ -41,7 +44,20 @@ class Product extends Model
     protected $appends = [
         'profit',
         'profit_margin',
+        'image_url',
     ];
+
+    /**
+     * Public URL for the product image, or null when none is set.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if (!$this->image_path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->image_path);
+    }
 
     /**
      * selling_price - cost_price. Null when there is no cost price to

@@ -81,6 +81,25 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderReceipt::class);
     }
 
+    /**
+     * Purchase order activity/audit logs.
+     *
+     * This records who performed an action, what happened,
+     * and when it happened.
+     */
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(PurchaseOrderActivityLog::class);
+    }
+
+    /**
+     * Log of every email sent to the supplier for this purchase order.
+     */
+    public function emails(): HasMany
+    {
+        return $this->hasMany(PurchaseOrderEmail::class);
+    }
+
     public function isPendingApproval(): bool
     {
         return $this->status === self::STATUS_PENDING_APPROVAL;
@@ -97,22 +116,24 @@ class PurchaseOrder extends Model
     }
 
     /**
-     * Total ordered value across all items (quantity_ordered * unit_price).
-     * Computed here rather than stored, so it's always correct even if
-     * items are added/edited while still in draft.
+     * Total ordered value across all items.
      */
     public function getTotalAttribute(): float
     {
         return round(
             $this->items->sum(
-                fn (PurchaseOrderItem $item) => (float) $item->quantity_ordered * (float) $item->unit_price
+                fn (PurchaseOrderItem $item) =>
+                    (float) $item->quantity_ordered *
+                    (float) $item->unit_price
             ),
             2
         );
     }
 
-    public function scopeStatus(Builder $query, string $status): Builder
-    {
+    public function scopeStatus(
+        Builder $query,
+        string $status
+    ): Builder {
         return $query->where('status', $status);
     }
 }

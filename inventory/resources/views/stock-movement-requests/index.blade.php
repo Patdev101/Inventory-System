@@ -16,13 +16,6 @@
     </div>
 </div>
 
-@if (session('success'))
-    <div class="alert-success">{{ session('success') }}</div>
-@endif
-
-@if (session('error'))
-    <div class="error">{{ session('error') }}</div>
-@endif
 
 @forelse ($requests as $stockMovementRequest)
     <div class="card stock-request-card {{ $stockMovementRequest->status !== 'pending' ? 'stock-request-reviewed' : '' }}">
@@ -52,7 +45,7 @@
         </div>
 
         <p>
-            Quantity: {{ number_format((float) $stockMovementRequest->quantity, 4) }}
+            Quantity: {{ format_qty((float) $stockMovementRequest->quantity) }}
             {{ $stockMovementRequest->productUnit?->unitOfMeasure?->name ?? '' }}
         </p>
 

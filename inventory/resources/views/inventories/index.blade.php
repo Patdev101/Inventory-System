@@ -189,6 +189,23 @@
         color: #111827;
     }
 
+    .product-thumb {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        object-fit: cover;
+        border: 1px solid #e5e7eb;
+        display: block;
+    }
+
+    .product-thumb-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f5f9;
+        color: #94a3b8;
+    }
+
     .product-code,
     .location-code {
         color: #6b7280;
@@ -247,26 +264,6 @@
 </div>
 
 
-{{-- =========================
-     FLASH MESSAGES
-========================= --}}
-
-@if (session('success'))
-
-    <div class="success-message">
-        {{ session('success') }}
-    </div>
-
-@endif
-
-
-@if (session('error'))
-
-    <div class="error-message">
-        {{ session('error') }}
-    </div>
-
-@endif
 
 
 @if ($errors->any())
@@ -372,6 +369,10 @@
                 <tr>
 
                     <th>
+                        Image
+                    </th>
+
+                    <th>
                         ID
                     </th>
 
@@ -423,6 +424,33 @@
                 @endphp
 
                 <tr>
+
+                    {{-- IMAGE --}}
+
+                    <td>
+
+                        @if ($inventory->product?->image_url)
+
+                            <img
+                                src="{{ $inventory->product->image_url }}"
+                                alt="{{ $inventory->product->name }}"
+                                class="product-thumb"
+                            >
+
+                        @else
+
+                            <div class="product-thumb product-thumb-empty">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                                    <circle cx="9" cy="10" r="2"></circle>
+                                    <path d="M21 16l-5.2-5.2a2 2 0 0 0-2.8 0L4 20"></path>
+                                </svg>
+                            </div>
+
+                        @endif
+
+                    </td>
+
 
                     {{-- ID --}}
 
@@ -520,10 +548,7 @@
 
                         <span class="quantity-main">
 
-                            {{ number_format(
-                                (float) $inventory->quantity,
-                                4
-                            ) }}
+                            {{ format_qty((float) $inventory->quantity) }}
 
                         </span>
 
@@ -542,10 +567,7 @@
 
                         <span class="base-quantity">
 
-                            {{ number_format(
-                                $baseQuantity,
-                                4
-                            ) }}
+                            {{ format_qty($baseQuantity) }}
 
                         </span>
 
@@ -592,35 +614,8 @@
                                 ) }}"
                                 class="btn btn-secondary"
                             >
-                                Edit
+                                Update
                             </a>
-                            @endif
-
-
-                            @if (auth()->user()->isAdmin())
-                            <form
-                                action="{{ route(
-                                    'inventories.destroy',
-                                    $inventory
-                                ) }}"
-                                method="POST"
-                            >
-
-                                @csrf
-
-                                @method('DELETE')
-
-                                <button
-                                    type="submit"
-                                    class="btn btn-danger"
-                                    onclick="return confirm(
-                                        'Delete this inventory record? The transaction audit record will be preserved.'
-                                    )"
-                                >
-                                    Delete
-                                </button>
-
-                            </form>
                             @endif
 
                         </div>

@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\PurchaseOrderMail;
 use App\Models\Location;
 use App\Models\Product;
 use App\Models\ProductUnit;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderEmail;
 use App\Models\Supplier;
 use App\Services\PurchaseOrderService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class PurchaseOrderController extends Controller
 {
@@ -30,7 +34,7 @@ class PurchaseOrderController extends Controller
             'supplier',
             'location',
             'createdBy',
-            'items',
+            'items.product',
         ])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
@@ -57,7 +61,7 @@ class PurchaseOrderController extends Controller
                 $query->where('status', $status);
             })
             ->latest()
-            ->paginate(15)
+            ->simplePaginate(5)
             ->withQueryString();
 
         return view(
@@ -418,12 +422,129 @@ class PurchaseOrderController extends Controller
             'items.productUnit.unitOfMeasure',
             'receipts.receivedBy',
             'receipts.items.purchaseOrderItem.product',
+            'receipts.items.purchaseOrderItem.productUnit.unitOfMeasure',
+            'activityLogs.user',
         ]);
 
         return view(
             'purchase-orders.show',
             compact('purchaseOrder')
         );
+    }
+
+    /**
+     * Download a printable PDF of a purchase order.
+     */
+    public function downloadPdf(
+        PurchaseOrder $purchaseOrder
+    ) {
+        $purchaseOrder->load([
+            'supplier',
+            'location.company',
+            'createdBy',
+            'approvedBy',
+            'items.product',
+            'items.productUnit.unitOfMeasure',
+        ]);
+
+        $pdf = Pdf::loadView(
+            'purchase-orders.pdf',
+            compact('purchaseOrder')
+        )->setPaper('a4');
+
+        return $pdf->download(
+            $purchaseOrder->po_number . '.pdf'
+        );
+    }
+
+    /**
+     * Show the "Email to Supplier" compose form, prefilled with
+     * sensible defaults (supplier's email, a standard subject/body).
+     */
+    public function composeEmail(
+        PurchaseOrder $purchaseOrder
+    ) {
+        $purchaseOrder->load([
+            'supplier',
+            'location.company',
+            'items',
+        ]);
+
+        return view(
+            'purchase-orders.email',
+            compact('purchaseOrder')
+        );
+    }
+
+    /**
+     * Send the purchase order to the supplier by email, with the PDF
+     * attached, and record it in the PO's email log and activity
+     * history.
+     */
+    public function sendEmail(
+        Request $request,
+        PurchaseOrder $purchaseOrder
+    ) {
+        $validated = $request->validate([
+            'to_email' => ['required', 'email', 'max:255'],
+            'cc_email' => ['nullable', 'email', 'max:255'],
+            'bcc_email' => ['nullable', 'email', 'max:255'],
+            'subject' => ['required', 'string', 'max:255'],
+            'body' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $purchaseOrder->load([
+            'supplier',
+            'location.company',
+            'createdBy',
+            'approvedBy',
+            'items.product',
+            'items.productUnit.unitOfMeasure',
+        ]);
+
+        $mail = Mail::to($validated['to_email']);
+
+        if (!empty($validated['cc_email'])) {
+            $mail->cc($validated['cc_email']);
+        }
+
+        if (!empty($validated['bcc_email'])) {
+            $mail->bcc($validated['bcc_email']);
+        }
+
+        $mail->send(new PurchaseOrderMail(
+            purchaseOrder: $purchaseOrder,
+            emailSubject: $validated['subject'],
+            messageBody: $validated['body']
+        ));
+
+        PurchaseOrderEmail::create([
+            'purchase_order_id' => $purchaseOrder->id,
+            'sent_by' => Auth::id(),
+            'to_email' => $validated['to_email'],
+            'cc_email' => $validated['cc_email'] ?? null,
+            'bcc_email' => $validated['bcc_email'] ?? null,
+            'subject' => $validated['subject'],
+            'body' => $validated['body'],
+            'sent_at' => now(),
+        ]);
+
+        $purchaseOrder->activityLogs()->create([
+            'user_id' => Auth::id(),
+            'action' => 'emailed_to_supplier',
+            'description' => 'Purchase order emailed to ' . $validated['to_email'] . '.',
+            'metadata' => [
+                'to_email' => $validated['to_email'],
+                'subject' => $validated['subject'],
+            ],
+        ]);
+
+        return redirect()
+            ->route('purchase-orders.show', $purchaseOrder)
+            ->with(
+                'success',
+                'Purchase order emailed to ' . $validated['to_email'] . '.'
+            );
     }
 
     /**
@@ -476,7 +597,8 @@ class PurchaseOrderController extends Controller
     ) {
         $this->purchaseOrderService
             ->submitForApproval(
-                $purchaseOrder
+                $purchaseOrder,
+                Auth::id()
             );
 
         return back()
@@ -561,7 +683,8 @@ class PurchaseOrderController extends Controller
     ) {
         $this->purchaseOrderService
             ->markOrdered(
-                $purchaseOrder
+                $purchaseOrder,
+                Auth::id()
             );
 
         return back()

@@ -3,11 +3,21 @@
 @section('title', 'Add Location')
 
 @section('content')
-<div class="page-header">
-    <h1>Add Location</h1>
+
+<div class="page-header" style="align-items: center;">
+    <div>
+        <h1>Add Location</h1>
+        <p style="margin: 6px 0 0; color: #64748b;">
+            Register a new warehouse or receiving location.
+        </p>
+    </div>
+
+    <a href="{{ route('locations.index') }}" class="btn btn-secondary" style="align-self: center;">
+        Back to Locations
+    </a>
 </div>
 
-<div class="card">
+<div class="card" style="max-width: 640px; margin: 0 auto;">
 
     @if ($errors->any())
         <div class="alert-error">
@@ -76,13 +86,15 @@
             >{{ old('address') }}</textarea>
         </div>
 
-        <button type="submit" class="btn btn-success">
-            Save Location
-        </button>
+        <div class="actions" style="margin-top: 20px;">
+            <button type="submit" class="btn btn-success">
+                Save Location
+            </button>
 
-        <a href="{{ route('locations.index') }}" class="btn btn-secondary">
-            Cancel
-        </a>
+            <a href="{{ route('locations.index') }}" class="btn btn-secondary">
+                Cancel
+            </a>
+        </div>
     </form>
 </div>
 @endsection

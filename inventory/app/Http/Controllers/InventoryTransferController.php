@@ -24,15 +24,13 @@ class InventoryTransferController extends Controller
     {
         $search = trim((string) $request->input('search'));
 
-        // Sorting: default is newest first, same as before. "From
-        // location" / "To location" are also sortable — these live on
-        // related tables (inventory_transfers -> inventories ->
-        // locations), so Eloquent's normal orderBy() can't reach them
-        // without a join. Two left joins (aliased per side, since both
-        // source and destination point at the same inventories/locations
-        // tables) let us sort by the joined location name directly.
         $sort = $request->input('sort', 'created_at');
-        $direction = strtolower((string) $request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $direction = strtolower(
+            (string) $request->input('direction', 'desc')
+        ) === 'asc'
+            ? 'asc'
+            : 'desc';
 
         $sortable = [
             'created_at'    => 'inventory_transfers.created_at',
@@ -51,10 +49,30 @@ class InventoryTransferController extends Controller
                 'productUnit.unitOfMeasure',
                 'receiver',
             ])
-            ->leftJoin('inventories as source_inventories', 'source_inventories.id', '=', 'inventory_transfers.source_inventory_id')
-            ->leftJoin('locations as source_locations', 'source_locations.id', '=', 'source_inventories.location_id')
-            ->leftJoin('inventories as destination_inventories', 'destination_inventories.id', '=', 'inventory_transfers.destination_inventory_id')
-            ->leftJoin('locations as destination_locations', 'destination_locations.id', '=', 'destination_inventories.location_id')
+            ->leftJoin(
+                'inventories as source_inventories',
+                'source_inventories.id',
+                '=',
+                'inventory_transfers.source_inventory_id'
+            )
+            ->leftJoin(
+                'locations as source_locations',
+                'source_locations.id',
+                '=',
+                'source_inventories.location_id'
+            )
+            ->leftJoin(
+                'inventories as destination_inventories',
+                'destination_inventories.id',
+                '=',
+                'inventory_transfers.destination_inventory_id'
+            )
+            ->leftJoin(
+                'locations as destination_locations',
+                'destination_locations.id',
+                '=',
+                'destination_inventories.location_id'
+            )
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
 
@@ -86,6 +104,7 @@ class InventoryTransferController extends Controller
                         'like',
                         '%' . $search . '%'
                     )
+
                     ->orWhere(
                         'source_locations.code',
                         'like',
@@ -97,6 +116,7 @@ class InventoryTransferController extends Controller
                         'like',
                         '%' . $search . '%'
                     )
+
                     ->orWhere(
                         'destination_locations.code',
                         'like',
@@ -121,9 +141,7 @@ class InventoryTransferController extends Controller
 
     /**
      * Transfers assigned to the current user that are still awaiting
-     * audit or receipt. This is the actionable queue — distinct from
-     * index(), which is a full read-only history log of every transfer
-     * regardless of who's involved or what state it's in.
+     * audit or receipt.
      */
     public function pendingAudits(Request $request)
     {
@@ -160,28 +178,19 @@ class InventoryTransferController extends Controller
             ->orderBy('id')
             ->get();
 
-        /*
-         * Destination is a location, not an existing inventory record — a
-         * location with zero (or no) stock of the product yet is exactly
-         * where you'd want to transfer stock to. The inventory record is
-         * created automatically on transfer if it doesn't exist yet.
-         */
         $locations = Location::with('company')
             ->orderBy('name')
             ->get();
 
-        /*
-         * Users who can be assigned as the receiver for a transfer.
-         * NOTE: not filtered by role yet — your users table doesn't have
-         * a confirmed `role` column, so every user is listed and the
-         * manager/staff designation is picked separately per transfer via
-         * receiver_role. Tighten this later if/when you add real roles.
-         */
         $receivers = User::orderBy('name')->get();
 
         return view(
             'inventory-transfers.create',
-            compact('inventories', 'locations', 'receivers')
+            compact(
+                'inventories',
+                'locations',
+                'receivers'
+            )
         );
     }
 
@@ -202,6 +211,7 @@ class InventoryTransferController extends Controller
             'receiver',
             'auditedBy',
             'receivedBy',
+            'receipts',
         ]);
 
         return view(
@@ -210,16 +220,8 @@ class InventoryTransferController extends Controller
         );
     }
 
-       /**
-     * Create pending transfers (one per checklist item) awaiting
-     * receiver audit.
-     *
-     * Stock leaves the source immediately for each item, but does not
-     * reach the destination until the assigned receiver passes the audit
-     * and marks it received (see audit() and receive() below). All items
-     * in the batch share the same destination, receiver, reference, and
-     * notes; each item is still its own InventoryTransfer row so it can
-     * be audited/received independently if needed.
+    /**
+     * Create pending transfers awaiting receiver audit.
      */
     public function store(Request $request)
     {
@@ -295,15 +297,18 @@ class InventoryTransferController extends Controller
             ->route('inventory-transfers.index')
             ->with(
                 'success',
-                count($validated['items']) . ' transfer(s) created and stock deducted from source. Awaiting receiver audit.'
+                count($validated['items'])
+                . ' transfer(s) created and stock deducted from source. Awaiting receiver audit.'
             );
     }
 
     /**
-     * Receiver inspects the transferred items and marks pass/fail.
+     * Receiver inspects the transferred item and marks pass/fail.
      */
-    public function audit(Request $request, InventoryTransfer $transfer)
-    {
+    public function audit(
+        Request $request,
+        InventoryTransfer $transfer
+    ) {
         if ($transfer->status !== 'pending') {
             return back()->with(
                 'error',
@@ -312,7 +317,10 @@ class InventoryTransferController extends Controller
         }
 
         if ((int) $transfer->receiver_id !== (int) Auth::id()) {
-            abort(403, 'Only the assigned receiver can audit this transfer.');
+            abort(
+                403,
+                'Only the assigned receiver can audit this transfer.'
+            );
         }
 
         $validated = $request->validate([
@@ -350,27 +358,78 @@ class InventoryTransferController extends Controller
 
         return back()->with(
             'success',
-            'Item passed audit. You can now mark it received.'
+            'Item passed audit. You can now enter the quantity actually received.'
         );
     }
 
     /**
-     * Credit destination stock once the transfer has passed audit.
+     * Record the quantity actually received.
+     *
+     * A receiver may receive the complete quantity or only part of it.
+     *
+     * Example:
+     * Sent:     100 pcs
+     * Received:  70 pcs
+     *
+     * The destination receives 70 pcs and the transfer remains pending
+     * for the remaining 30 pcs.
      */
-    public function receive(InventoryTransfer $transfer)
-    {
+    public function receive(
+        Request $request,
+        InventoryTransfer $transfer
+    ) {
         if ((int) $transfer->receiver_id !== (int) Auth::id()) {
-            abort(403, 'Only the assigned receiver can receive this transfer.');
+            abort(
+                403,
+                'Only the assigned receiver can receive this transfer.'
+            );
         }
+
+        if ($transfer->status !== 'pending') {
+            return back()->with(
+                'error',
+                'This transfer is no longer awaiting receipt.'
+            );
+        }
+
+        if ($transfer->audit_status !== 'passed') {
+            return back()->with(
+                'error',
+                'This transfer must pass audit before it can be received.'
+            );
+        }
+
+        $remainingQuantity = max(
+            0,
+            (float) $transfer->quantity
+            - (float) $transfer->received_quantity
+        );
+
+        if ($remainingQuantity <= 0) {
+            return back()->with(
+                'error',
+                'There is no remaining quantity to receive.'
+            );
+        }
+
+        $validated = $request->validate([
+            'received_quantity' => [
+                'required',
+                'numeric',
+                'gt:0',
+                'lte:' . $remainingQuantity,
+            ],
+        ]);
 
         $this->movementService->completeTransferReceipt(
             transfer: $transfer,
-            receivedByUserId: (int) Auth::id()
+            receivedByUserId: (int) Auth::id(),
+            receivedQuantity: (float) $validated['received_quantity']
         );
 
         return back()->with(
             'success',
-            'Transfer received. Stock has been added to the destination location.'
+            'Received quantity recorded successfully.'
         );
     }
 }

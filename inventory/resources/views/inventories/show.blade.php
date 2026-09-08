@@ -25,6 +25,29 @@
         padding: 18px;
     }
 
+    .product-summary-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .product-summary-thumb {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+    .product-summary-thumb-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f5f9;
+        color: #94a3b8;
+    }
+
     .summary-label {
         color: #6b7280;
         font-size: 13px;
@@ -204,25 +227,49 @@
 
     {{-- Product --}}
 
-    <div class="summary-card">
+    <div class="summary-card product-summary-card">
 
-        <div class="summary-label">
-            Product
-        </div>
+        @if ($inventory->product?->image_url)
 
-        <div class="summary-value">
+            <img
+                src="{{ $inventory->product->image_url }}"
+                alt="{{ $inventory->product->name }}"
+                class="product-summary-thumb"
+            >
 
-            {{ $inventory->product?->name ?? '-' }}
+        @else
 
-        </div>
-
-        @if ($inventory->product?->code)
-
-            <div class="summary-subtitle">
-                {{ $inventory->product->code }}
+            <div class="product-summary-thumb product-summary-thumb-empty">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                    <circle cx="9" cy="10" r="2"></circle>
+                    <path d="M21 16l-5.2-5.2a2 2 0 0 0-2.8 0L4 20"></path>
+                </svg>
             </div>
 
         @endif
+
+        <div>
+
+            <div class="summary-label">
+                Product
+            </div>
+
+            <div class="summary-value">
+
+                {{ $inventory->product?->name ?? '-' }}
+
+            </div>
+
+            @if ($inventory->product?->code)
+
+                <div class="summary-subtitle">
+                    {{ $inventory->product->code }}
+                </div>
+
+            @endif
+
+        </div>
 
     </div>
 
@@ -262,10 +309,7 @@
 
         <div class="summary-value">
 
-            {{ number_format(
-                (float) $inventory->quantity,
-                4
-            ) }}
+            {{ format_qty((float) $inventory->quantity) }}
 
             @if ($inventory->productUnit?->unitOfMeasure)
 
@@ -277,7 +321,7 @@
 
         <div class="summary-subtitle">
 
-            {{ number_format($baseQuantity, 4) }}
+            {{ format_qty($baseQuantity) }}
             base units
 
         </div>
@@ -308,7 +352,7 @@
             @if ($reorderPoint > 0)
 
                 · Reorder point:
-                {{ number_format($reorderPoint, 4) }}
+                {{ format_qty($reorderPoint) }}
 
             @endif
 
@@ -360,7 +404,7 @@
                     @foreach ($transferCandidates as $candidate)
                         <option value="{{ $candidate->location_id }}">
                             {{ $candidate->location?->name ?? 'Location #' . $candidate->location_id }}
-                            ({{ number_format($candidate->getBaseQuantityValue(), 4) }} base units available)
+                            ({{ format_qty($candidate->getBaseQuantityValue()) }} base units available)
                         </option>
                     @endforeach
                 </select>
@@ -509,10 +553,7 @@
 
                     <strong>
 
-                        {{ number_format(
-                            (float) $inventory->quantity,
-                            4
-                        ) }}
+                        {{ format_qty((float) $inventory->quantity) }}
 
                     </strong>
 
@@ -537,10 +578,7 @@
 
                     <strong>
 
-                        {{ number_format(
-                            (float) $inventory->base_quantity,
-                            4
-                        ) }}
+                        {{ format_qty((float) $inventory->base_quantity) }}
 
                     </strong>
 
@@ -563,10 +601,7 @@
 
                     <strong>
 
-                        {{ number_format(
-                            $reorderPoint,
-                            4
-                        ) }}
+                        {{ format_qty($reorderPoint) }}
 
                     </strong>
 
@@ -773,10 +808,7 @@
 
                                 <strong>
 
-                                    {{ number_format(
-                                        (float) $transaction->quantity,
-                                        4
-                                    ) }}
+                                    {{ format_qty((float) $transaction->quantity) }}
 
                                 </strong>
 
@@ -813,10 +845,7 @@
 
                                 <strong>
 
-                                    {{ number_format(
-                                        $transactionBase,
-                                        4
-                                    ) }}
+                                    {{ format_qty($transactionBase) }}
 
                                 </strong>
 
@@ -862,10 +891,7 @@
 
                                     <span class="balance-positive">
 
-                                        {{ number_format(
-                                            $runningBalance,
-                                            4
-                                        ) }}
+                                        {{ format_qty($runningBalance) }}
 
                                     </span>
 
@@ -873,10 +899,7 @@
 
                                     <span class="balance-zero">
 
-                                        {{ number_format(
-                                            $runningBalance,
-                                            4
-                                        ) }}
+                                        {{ format_qty($runningBalance) }}
 
                                     </span>
 

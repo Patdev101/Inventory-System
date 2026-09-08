@@ -1876,7 +1876,238 @@
 
                 </div>
 
+                <div class="notif-bell-wrap">
+
+                    <button
+                        type="button"
+                        id="notif-bell-btn"
+                        class="notif-bell-btn"
+                        onclick="document.getElementById('notif-dropdown').classList.toggle('open')"
+                    >
+                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+
+                        @if ($unreadNotificationsCount > 0)
+                            <span class="notif-bell-badge">
+                                {{ $unreadNotificationsCount > 9 ? '9+' : $unreadNotificationsCount }}
+                            </span>
+                        @endif
+                    </button>
+
+                    <div id="notif-dropdown" class="notif-dropdown">
+
+                        <div class="notif-dropdown-header">
+
+                            <strong>Notifications</strong>
+
+                            @if ($unreadNotificationsCount > 0)
+                                <form method="POST" action="{{ route('notifications.read-all') }}">
+                                    @csrf
+                                    @method('PATCH')
+
+                                    <button type="submit" class="notif-mark-all">
+                                        Mark all as read
+                                    </button>
+                                </form>
+                            @endif
+
+                        </div>
+
+                        <div class="notif-dropdown-list">
+
+                            @forelse ($notifications as $notification)
+
+                                <form
+                                    method="POST"
+                                    action="{{ route('notifications.read', $notification->id) }}"
+                                    class="notif-item-form"
+                                >
+                                    @csrf
+                                    @method('PATCH')
+
+                                    <button
+                                        type="submit"
+                                        class="notif-item {{ $notification->read_at ? 'is-read' : '' }}"
+                                    >
+                                        <span class="notif-item-message">
+                                            {{ $notification->data['message'] ?? 'New notification' }}
+                                        </span>
+
+                                        <span class="notif-item-time">
+                                            {{ $notification->created_at->diffForHumans() }}
+                                        </span>
+                                    </button>
+                                </form>
+
+                            @empty
+
+                                <div class="notif-empty">
+                                    No notifications yet.
+                                </div>
+
+                            @endforelse
+
+                        </div>
+
+                    </div>
+
+                </div>
+
             </div>
+
+
+            <style>
+
+                .notif-bell-wrap {
+                    position: relative;
+                    flex-shrink: 0;
+                }
+
+                .notif-bell-btn {
+                    position: relative;
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    border: 1px solid #e5e7eb;
+                    background: #fff;
+                    color: #475569;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+                }
+
+                .notif-bell-btn:hover {
+                    background: #f8fafc;
+                    color: #1f2937;
+                }
+
+                .notif-bell-badge {
+                    position: absolute;
+                    top: -3px;
+                    right: -3px;
+                    min-width: 18px;
+                    height: 18px;
+                    padding: 0 4px;
+                    border-radius: 999px;
+                    background: #dc2626;
+                    color: #fff;
+                    font-size: 10px;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    line-height: 1;
+                }
+
+                .notif-dropdown {
+                    display: none;
+                    position: absolute;
+                    top: calc(100% + 10px);
+                    right: 0;
+                    width: 340px;
+                    max-width: 90vw;
+                    background: #fff;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+                    box-shadow: 0 12px 32px rgba(15, 23, 42, .14);
+                    z-index: 50;
+                    overflow: hidden;
+                }
+
+                .notif-dropdown.open {
+                    display: block;
+                }
+
+                .notif-dropdown-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 10px;
+                    padding: 12px 14px;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+
+                .notif-dropdown-header strong {
+                    color: #111827;
+                    font-size: 14px;
+                }
+
+                .notif-item-form {
+                    margin: 0;
+                }
+
+                .notif-mark-all {
+                    border: none;
+                    background: none;
+                    color: #2563eb;
+                    font-size: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                }
+
+                .notif-dropdown-list {
+                    max-height: 340px;
+                    overflow-y: auto;
+                }
+
+                .notif-item {
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    padding: 12px 14px;
+                    border: none;
+                    border-bottom: 1px solid #f8fafc;
+                    background: #eff6ff;
+                    cursor: pointer;
+                }
+
+                .notif-item.is-read {
+                    background: #fff;
+                }
+
+                .notif-item:hover {
+                    background: #f1f5f9;
+                }
+
+                .notif-item-message {
+                    display: block;
+                    color: #1f2937;
+                    font-size: 13px;
+                    line-height: 1.4;
+                }
+
+                .notif-item-time {
+                    display: block;
+                    margin-top: 4px;
+                    color: #94a3b8;
+                    font-size: 11px;
+                }
+
+                .notif-empty {
+                    padding: 24px 14px;
+                    text-align: center;
+                    color: #94a3b8;
+                    font-size: 13px;
+                }
+
+            </style>
+
+
+            <script>
+                document.addEventListener('click', function (event) {
+                    var wrap = document.querySelector('.notif-bell-wrap');
+                    if (wrap && !wrap.contains(event.target)) {
+                        var dropdown = document.getElementById('notif-dropdown');
+                        if (dropdown) {
+                            dropdown.classList.remove('open');
+                        }
+                    }
+                });
+            </script>
 
 
             {{-- =================================================
@@ -2124,10 +2355,7 @@
                     </div>
 
                     <div class="stat-value stat-green">
-                        {{ number_format(
-                            (float) $totalBaseStock,
-                            4
-                        ) }}
+                        {{ format_qty((float) $totalBaseStock) }}
                     </div>
 
                     <div class="stat-description">
@@ -2368,10 +2596,7 @@
 
                                                 <td class="alert-stock-danger">
 
-                                                    {{ number_format(
-                                                        (float) $inventory->base_quantity,
-                                                        4
-                                                    ) }}
+                                                    {{ format_qty((float) $inventory->base_quantity) }}
 
                                                     {{ $inventory->product?->baseUnit?->code ?? 'base units' }}
 
@@ -2380,12 +2605,9 @@
 
                                                 <td class="alert-reorder">
 
-                                                    {{ number_format(
-                                                        (float) (
+                                                    {{ format_qty((float) (
                                                             $inventory->product?->reorder_point ?? 0
-                                                        ),
-                                                        4
-                                                    ) }}
+                                                        )) }}
 
                                                 </td>
 
@@ -2546,10 +2768,7 @@
 
                                                 <td class="alert-stock-critical">
 
-                                                    {{ number_format(
-                                                        (float) $inventory->base_quantity,
-                                                        4
-                                                    ) }}
+                                                    {{ format_qty((float) $inventory->base_quantity) }}
 
                                                     {{ $inventory->product?->baseUnit?->code ?? 'base units' }}
 
@@ -2558,12 +2777,9 @@
 
                                                 <td class="alert-reorder">
 
-                                                    {{ number_format(
-                                                        (float) (
+                                                    {{ format_qty((float) (
                                                             $inventory->product?->reorder_point ?? 0
-                                                        ),
-                                                        4
-                                                    ) }}
+                                                        )) }}
 
                                                 </td>
 
@@ -2745,10 +2961,7 @@
 
                                                 <td class="alert-stock-warning">
 
-                                                    {{ number_format(
-                                                        $currentBaseQuantity,
-                                                        4
-                                                    ) }}
+                                                    {{ format_qty($currentBaseQuantity) }}
 
                                                     {{ $inventory->product?->baseUnit?->code ?? 'base units' }}
 
@@ -2757,20 +2970,14 @@
 
                                                 <td class="alert-reorder">
 
-                                                    {{ number_format(
-                                                        $reorderPoint,
-                                                        4
-                                                    ) }}
+                                                    {{ format_qty($reorderPoint) }}
 
                                                 </td>
 
 
                                                 <td class="alert-difference">
 
-                                                    -{{ number_format(
-                                                        $stockDifference,
-                                                        4
-                                                    ) }}
+                                                    -{{ format_qty($stockDifference) }}
 
                                                 </td>
 
@@ -2860,10 +3067,7 @@
                         </div>
 
                         <div class="analytics-value analytics-in">
-                            +{{ number_format(
-                                (float) $totalIn,
-                                4
-                            ) }}
+                            +{{ format_qty((float) $totalIn) }}
                         </div>
 
                         <div class="analytics-description">
@@ -2880,10 +3084,7 @@
                         </div>
 
                         <div class="analytics-value analytics-out">
-                            -{{ number_format(
-                                (float) $totalOut,
-                                4
-                            ) }}
+                            -{{ format_qty((float) $totalOut) }}
                         </div>
 
                         <div class="analytics-description">
@@ -2910,10 +3111,7 @@
 
                             {{ $netMovement >= 0 ? '+' : '' }}
 
-                            {{ number_format(
-                                (float) $netMovement,
-                                4
-                            ) }}
+                            {{ format_qty((float) $netMovement) }}
 
                         </div>
 
@@ -2931,10 +3129,7 @@
                         </div>
 
                         <div class="analytics-value analytics-positive">
-                            {{ number_format(
-                                (float) $totalBaseStock,
-                                4
-                            ) }}
+                            {{ format_qty((float) $totalBaseStock) }}
                         </div>
 
                         <div class="analytics-description">
@@ -3078,10 +3273,7 @@
                                             "
                                             title="
                                                 IN:
-                                                {{ number_format(
-                                                    $inValue,
-                                                    4
-                                                ) }}
+                                                {{ format_qty($inValue) }}
                                                 base units
                                             "
                                         ></div>
@@ -3098,10 +3290,7 @@
                                             "
                                             title="
                                                 OUT:
-                                                {{ number_format(
-                                                    $outValue,
-                                                    4
-                                                ) }}
+                                                {{ format_qty($outValue) }}
                                                 base units
                                             "
                                         ></div>
@@ -3310,11 +3499,8 @@
 
                                     <td>
 
-                                        {{ number_format(
-                                            (float)
-                                            $transaction->quantity,
-                                            4
-                                        ) }}
+                                        {{ format_qty((float)
+                                            $transaction->quantity) }}
 
                                         @if (
                                             $transaction
@@ -3344,11 +3530,8 @@
                                             -
                                         @endif
 
-                                        {{ number_format(
-                                            (float)
-                                            $transaction->base_quantity,
-                                            4
-                                        ) }}
+                                        {{ format_qty((float)
+                                            $transaction->base_quantity) }}
 
                                     </td>
 
@@ -3530,11 +3713,8 @@
                             </div>
 
                             <div class="transfer-summary-value">
-                                {{ number_format(
-                                    (float)
-                                    $totalTransferBaseQuantity,
-                                    4
-                                ) }}
+                                {{ format_qty((float)
+                                    $totalTransferBaseQuantity) }}
                             </div>
 
                         </div>
@@ -3547,11 +3727,8 @@
                             </div>
 
                             <div class="transfer-summary-value">
-                                {{ number_format(
-                                    (float)
-                                    $totalBaseStock,
-                                    4
-                                ) }}
+                                {{ format_qty((float)
+                                    $totalBaseStock) }}
                             </div>
 
                         </div>
@@ -3680,11 +3857,8 @@
 
                                     <td>
 
-                                        {{ number_format(
-                                            (float)
-                                            $transfer->quantity,
-                                            4
-                                        ) }}
+                                        {{ format_qty((float)
+                                            $transfer->quantity) }}
 
                                         @if (
                                             $transfer
@@ -3706,11 +3880,8 @@
 
                                     <td>
 
-                                        {{ number_format(
-                                            (float)
-                                            $transfer->base_quantity,
-                                            4
-                                        ) }}
+                                        {{ format_qty((float)
+                                            $transfer->base_quantity) }}
 
                                         base units
 

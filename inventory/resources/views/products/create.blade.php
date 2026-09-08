@@ -51,6 +51,7 @@
         action="{{ route('products.store') }}"
         method="POST"
         id="product-form"
+        enctype="multipart/form-data"
     >
 
         @csrf
@@ -163,11 +164,35 @@
                 class="form-control"
                 value="{{ old('sku') }}"
                 maxlength="100"
-                placeholder="Optional — can be entered/scanned later"
+                placeholder="Leave blank to auto-generate"
             >
 
             <small class="help-text">
-                SKU can later be populated from a barcode scanner.
+                Leave blank and a unique SKU will be generated automatically, or enter your own (e.g. from a barcode scanner).
+            </small>
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label for="item_code">
+                Item Code
+                <small>(Optional)</small>
+            </label>
+
+            <input
+                type="text"
+                id="item_code"
+                name="item_code"
+                class="form-control"
+                value="{{ old('item_code') }}"
+                maxlength="100"
+                placeholder="Leave blank to auto-generate"
+            >
+
+            <small class="help-text">
+                Leave blank and a unique item code will be generated automatically, or enter your own.
             </small>
 
         </div>
@@ -211,6 +236,51 @@
                 Active
 
             </label>
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>
+                Product Image
+                <small>(Optional)</small>
+            </label>
+
+            <div class="image-upload">
+
+                <input
+                    type="file"
+                    id="image"
+                    name="image"
+                    class="image-upload-input"
+                    accept="image/*"
+                >
+
+                <div class="image-upload-preview" id="image-upload-preview">
+
+                    <div class="image-upload-placeholder" id="image-upload-placeholder">
+
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 16V4M12 4l-4 4M12 4l4 4"></path>
+                            <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path>
+                        </svg>
+
+                        <span>Click or drag an image here</span>
+
+                    </div>
+
+                    <img id="image-upload-img" alt="Preview">
+
+                    <button type="button" id="image-upload-remove" class="image-upload-remove" aria-label="Remove image">&times;</button>
+
+                </div>
+
+            </div>
+
+            <small class="help-text">
+                JPG, PNG or similar. Max 4MB.
+            </small>
 
         </div>
 
@@ -361,7 +431,7 @@
                                 <small class="help-text">
                                     1 selected unit =
                                     <span class="factor-preview">
-                                        {{ number_format((float) ($oldUnit['conversion_factor'] ?? 1), 4) }}
+                                        {{ format_qty((float) ($oldUnit['conversion_factor'] ?? 1)) }}
                                     </span>
                                     base units.
                                 </small>
@@ -753,10 +823,94 @@
         margin-top: 25px;
     }
 
+    .image-upload {
+        position: relative;
+        width: 180px;
+    }
+
+    .image-upload-preview {
+        position: relative;
+        width: 180px;
+        height: 180px;
+        border: 2px dashed #cbd5e1;
+        border-radius: 14px;
+        background: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        transition: border-color .15s ease, background-color .15s ease;
+    }
+
+    .image-upload-preview.dragover {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+
+    .image-upload-input {
+        position: absolute;
+        inset: 0;
+        width: 180px;
+        height: 180px;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+    .image-upload-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        color: #94a3b8;
+        padding: 14px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .image-upload-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: none;
+    }
+
+    .image-upload-remove {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, .68);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        z-index: 3;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .image-upload-remove:hover {
+        background: rgba(15, 23, 42, .85);
+    }
+
 </style>
 
 
 <script>
+function formatQty(value) {
+    const num = Number(value);
+    if (!isFinite(num)) {
+        return String(value);
+    }
+    return parseFloat(num.toFixed(2)).toString();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
     const container =
@@ -844,7 +998,7 @@ document.addEventListener('DOMContentLoaded', function () {
         preview.textContent =
             isNaN(value)
                 ? '-'
-                : value.toFixed(4);
+                : formatQty(value);
     }
 
 
@@ -943,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     + (
                         isNaN(factor)
                             ? '-'
-                            : factor.toFixed(4)
+                            : formatQty(factor)
                     )
                     + ' base units<br>';
             });
@@ -1121,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 option.textContent =
                     (selectedOption ? selectedOption.text : 'Unit')
                     + ' (1 = '
-                    + factor.toFixed(4)
+                    + formatQty(factor)
                     + ' base units)';
 
                 select.appendChild(option);
@@ -1169,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', function () {
             costPerBaseUnit.toFixed(4);
 
         resultText.textContent =
-            '₱' + amount.toFixed(2) + ' ÷ ' + factor.toFixed(4)
+            '₱' + amount.toFixed(2) + ' ÷ ' + formatQty(factor)
             + ' = ₱' + costPerBaseUnit.toFixed(4) + ' per base unit — applied below.';
 
         updatePricingUI();
@@ -1528,6 +1682,71 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updatePricingUI();
     updateUnitPricingPreview();
+
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const imageInput = document.getElementById('image');
+    const imagePreview = document.getElementById('image-upload-preview');
+    const imagePlaceholder = document.getElementById('image-upload-placeholder');
+    const imagePreviewImg = document.getElementById('image-upload-img');
+    const imageRemoveBtn = document.getElementById('image-upload-remove');
+
+    if (!imageInput) {
+        return;
+    }
+
+    function showImageFile(file) {
+        const reader = new FileReader();
+
+        reader.onload = function (event) {
+            imagePreviewImg.src = event.target.result;
+            imagePreviewImg.style.display = 'block';
+            imagePlaceholder.style.display = 'none';
+            imageRemoveBtn.style.display = 'flex';
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    imageInput.addEventListener('change', function () {
+        if (imageInput.files && imageInput.files[0]) {
+            showImageFile(imageInput.files[0]);
+        }
+    });
+
+    imagePreview.addEventListener('dragover', function (event) {
+        event.preventDefault();
+        imagePreview.classList.add('dragover');
+    });
+
+    ['dragleave', 'drop'].forEach(function (eventName) {
+        imagePreview.addEventListener(eventName, function (event) {
+            event.preventDefault();
+            imagePreview.classList.remove('dragover');
+        });
+    });
+
+    imagePreview.addEventListener('drop', function (event) {
+        const file = event.dataTransfer.files[0];
+
+        if (file) {
+            imageInput.files = event.dataTransfer.files;
+            showImageFile(file);
+        }
+    });
+
+    imageRemoveBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        imageInput.value = '';
+        imagePreviewImg.style.display = 'none';
+        imagePreviewImg.src = '';
+        imagePlaceholder.style.display = 'flex';
+        imageRemoveBtn.style.display = 'none';
+    });
 
 });
 </script>

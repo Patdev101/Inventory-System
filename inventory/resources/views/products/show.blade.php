@@ -37,88 +37,119 @@
 </div>
 
 
-<div class="card">
+{{-- HERO --}}
+<div class="product-hero">
 
-    <div class="details-grid">
+    <div class="product-hero-image">
 
-        <div>
-            <strong>ID</strong>
-            <span>{{ $product->id }}</span>
+        @if ($product->image_url)
+
+            <img
+                src="{{ $product->image_url }}"
+                alt="{{ $product->name }}"
+            >
+
+        @else
+
+            <div class="product-hero-placeholder">
+
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                    <circle cx="9" cy="10" r="2"></circle>
+                    <path d="M21 16l-5.2-5.2a2 2 0 0 0-2.8 0L4 20"></path>
+                </svg>
+
+                <span>No image</span>
+
+            </div>
+
+        @endif
+
+    </div>
+
+    <div class="product-hero-body">
+
+        <div class="product-hero-top">
+
+            @if ($product->is_active)
+                <span class="status-badge status-active">Active</span>
+            @else
+                <span class="status-badge status-inactive">Inactive</span>
+            @endif
+
+            @if ($product->category)
+                <span class="pill">{{ $product->category->name }}</span>
+            @endif
+
+            @if ($product->company)
+                <span class="pill pill-muted">{{ $product->company->name }}</span>
+            @endif
+
         </div>
 
-        <div>
-            <strong>Status</strong>
+        <h2 class="product-hero-name">
+            {{ $product->name }}
+        </h2>
 
-            <span>
-                @if ($product->is_active)
-                    <span class="status-badge status-active">
-                        Active
-                    </span>
-                @else
-                    <span class="status-badge status-inactive">
-                        Inactive
-                    </span>
-                @endif
-            </span>
+        <div class="product-hero-sku">
+            SKU: {{ $product->sku ?? '—' }} &nbsp;•&nbsp; Item Code: {{ $product->item_code ?? '—' }}
         </div>
 
-        <div>
-            <strong>Category</strong>
-            <span>{{ $product->category->name ?? '-' }}</span>
-        </div>
+        <div class="product-hero-meta">
 
-        <div>
-            <strong>Company</strong>
-            <span>{{ $product->company->name ?? '-' }}</span>
-        </div>
+            <div class="meta-item">
+                <span class="meta-label">Base Unit</span>
+                <span class="meta-value">
+                    @if ($product->baseUnit)
+                        {{ $product->baseUnit->name }} ({{ $product->baseUnit->code }})
+                    @else
+                        —
+                    @endif
+                </span>
+            </div>
 
-        <div>
-            <strong>Product Name</strong>
-            <span>{{ $product->name }}</span>
-        </div>
+            <div class="meta-item">
+                <span class="meta-label">Reorder Point</span>
+                <span class="meta-value">
+                    {{ format_qty((float) $product->reorder_point) }}
+                </span>
+            </div>
 
-        <div>
-            <strong>SKU</strong>
-            <span>{{ $product->sku ?? '-' }}</span>
-        </div>
+            <div class="meta-item">
+                <span class="meta-label">Selling Price</span>
+                <span class="meta-value">
+                    ₱{{ number_format((float) $product->selling_price, 2) }}
+                </span>
+            </div>
 
-        <div>
-            <strong>Base Unit</strong>
-            <span>
-                @if ($product->baseUnit)
-                    {{ $product->baseUnit->name }}
-                    ({{ $product->baseUnit->code }})
-                @else
-                    -
-                @endif
-            </span>
-        </div>
+            <div class="meta-item">
+                <span class="meta-label">Product ID</span>
+                <span class="meta-value">#{{ $product->id }}</span>
+            </div>
 
-        <div>
-            <strong>Reorder Point</strong>
-            <span>
-                {{ number_format((float) $product->reorder_point, 4) }}
-            </span>
         </div>
 
     </div>
 
-
-    <div style="margin-top: 25px;">
-
-        <strong>Description</strong>
-
-        <p style="color: #475569;">
-            {{ $product->description ?: '-' }}
-        </p>
-
-    </div>
+</div>
 
 
-    <hr style="margin: 30px 0;">
+{{-- DESCRIPTION --}}
+<div class="card section-card">
+
+    <h2 class="section-title">Description</h2>
+
+    <p class="description-text">
+        {{ $product->description ?: 'No description provided.' }}
+    </p>
+
+</div>
 
 
-    <h2>Units of Measure</h2>
+{{-- UNITS OF MEASURE --}}
+<div class="card section-card">
+
+    <h2 class="section-title">Units of Measure</h2>
 
     @if ($product->productUnits->count())
 
@@ -150,7 +181,7 @@
                             </td>
 
                             <td>
-                                {{ $productUnit->conversion_factor }}
+                                {{ format_qty($productUnit->conversion_factor) }}
                             </td>
 
                             <td>
@@ -192,25 +223,137 @@
 
 <style>
 
-    .details-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 20px;
+    .product-hero {
+        display: flex;
+        gap: 28px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, .05);
+        padding: 26px;
+        margin-bottom: 20px;
     }
 
-    .details-grid > div {
+    .product-hero-image {
+        flex-shrink: 0;
+        width: 180px;
+        height: 180px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+    }
+
+    .product-hero-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .product-hero-placeholder {
+        width: 100%;
+        height: 100%;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #94a3b8;
     }
 
-    .details-grid strong {
-        color: #64748b;
-        font-size: 13px;
+    .product-hero-placeholder span {
+        font-size: 12px;
+        font-weight: 600;
     }
 
-    .details-grid span {
+    .product-hero-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .product-hero-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 11px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    .pill-muted {
+        background: #f1f5f9;
+        color: #475569;
+    }
+
+    .product-hero-name {
+        margin: 0 0 4px;
+        font-size: 26px;
         color: #0f172a;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    .product-hero-sku {
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    .product-hero-meta {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 12px 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+    }
+
+    .meta-label {
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .meta-value {
+        color: #0f172a;
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    .section-card {
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        margin: 0 0 14px;
+        font-size: 18px;
+        color: #0f172a;
+    }
+
+    .description-text {
+        margin: 0;
+        color: #475569;
+        line-height: 1.6;
     }
 
     .status-badge {
@@ -239,8 +382,17 @@
 
     @media (max-width: 700px) {
 
-        .details-grid {
-            grid-template-columns: 1fr;
+        .product-hero {
+            flex-direction: column;
+        }
+
+        .product-hero-image {
+            width: 100%;
+            height: 200px;
+        }
+
+        .product-hero-meta {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
     }

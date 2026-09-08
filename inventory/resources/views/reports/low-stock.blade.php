@@ -47,8 +47,8 @@
                     <tr>
                         <td>{{ $inventory->product?->name ?? 'Deleted product' }}</td>
                         <td>{{ $inventory->location?->name ?? 'Deleted location' }}</td>
-                        <td>{{ number_format($inventory->getBaseQuantityValue(), 4) }}</td>
-                        <td>{{ number_format($inventory->getReorderPointValue(), 4) }}</td>
+                        <td>{{ format_qty($inventory->getBaseQuantityValue()) }}</td>
+                        <td>{{ format_qty($inventory->getReorderPointValue()) }}</td>
                         <td><span class="stock-status {{ $stockStatusClass }}">{{ $stockStatus }}</span></td>
                         <td><a href="{{ route('inventories.show', $inventory) }}" class="btn btn-secondary">View</a></td>
                     </tr>

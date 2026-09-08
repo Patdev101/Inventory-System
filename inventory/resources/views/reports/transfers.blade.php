@@ -50,11 +50,11 @@
             <tbody>
                 @foreach ($transfers as $transfer)
                     <tr>
-                        <td>{{ $transfer->created_at?->format('Y-m-d H:i') }}</td>
+                        <td>{{ format_datetime($transfer->created_at) }}</td>
                         <td>{{ $transfer->product?->name ?? 'Deleted product' }}</td>
                         <td>{{ $transfer->sourceInventory?->location?->name ?? '-' }}</td>
                         <td>{{ $transfer->destinationInventory?->location?->name ?? '-' }}</td>
-                        <td>{{ number_format((float) $transfer->quantity, 4) }} {{ $transfer->productUnit?->unitOfMeasure?->code }}</td>
+                        <td>{{ format_qty((float) $transfer->quantity) }} {{ $transfer->productUnit?->unitOfMeasure?->code }}</td>
                         <td>{{ $transfer->reference ?: '-' }}</td>
                         <td><a href="{{ route('inventory-transfers.show', $transfer) }}" class="btn btn-secondary">View</a></td>
                     </tr>

@@ -56,7 +56,7 @@
 
                         <td>#{{ $transfer->id }}</td>
 
-                        <td>{{ $transfer->created_at->format('Y-m-d H:i:s') }}</td>
+                        <td>{{ format_datetime($transfer->created_at) }}</td>
 
                         <td>
                             <strong>{{ $transfer->product->name ?? 'N/A' }}</strong>
@@ -67,7 +67,7 @@
                         <td>{{ $transfer->destinationInventory->location->name ?? 'N/A' }}</td>
 
                         <td>
-                            {{ number_format((float) $transfer->quantity, 4) }}
+                            {{ format_qty((float) $transfer->quantity) }}
                             {{ $transfer->productUnit?->unitOfMeasure?->code ?? '' }}
                         </td>
 

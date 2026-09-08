@@ -316,7 +316,7 @@
                                         style="font-size: 12px; color: #059669; margin-top: 2px;"
                                     >
                                         Available:
-                                        {{ number_format((float) $inventory->base_quantity, 4) }}
+                                        {{ format_qty((float) $inventory->base_quantity) }}
                                         base units
                                     </div>
 
@@ -360,7 +360,7 @@
                                                     ({{ $unit->code }})
                                                     -
                                                     1 =
-                                                    {{ number_format((float) $pu->conversion_factor, 4) }}
+                                                    {{ format_qty((float) $pu->conversion_factor) }}
                                                     base
                                                 </option>
 
@@ -590,7 +590,8 @@ document.addEventListener('DOMContentLoaded', function () {
     ========================== */
 
     function formatNumber(value) {
-        return Number(value || 0).toFixed(4);
+        const num = Number(value || 0);
+        return parseFloat(num.toFixed(2)).toString();
     }
 
 

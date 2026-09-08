@@ -866,6 +866,14 @@
 
 <script>
 
+function formatQty(value) {
+    const num = Number(value);
+    if (!isFinite(num)) {
+        return String(value);
+    }
+    return parseFloat(num.toFixed(2)).toString();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
     /*
@@ -1058,6 +1066,49 @@ document.addEventListener('DOMContentLoaded', function () {
         return supplier
             ? String(supplier.company_id)
             : null;
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filter Receiving Location by Supplier's Company
+    |--------------------------------------------------------------------------
+    */
+
+    function filterLocationsForSupplier(companyId) {
+
+        let visibleCount = 0;
+
+        Array.from(locationSelect.options).forEach(function (option) {
+
+            if (!option.value) {
+                return;
+            }
+
+            const matches =
+                !companyId ||
+                option.dataset.companyId === companyId;
+
+            option.hidden = !matches;
+            option.disabled = !matches;
+
+            if (matches) {
+                visibleCount++;
+            }
+
+        });
+
+        const placeholder =
+            locationSelect.options[0];
+
+        if (placeholder) {
+
+            placeholder.textContent = companyId && visibleCount === 0
+                ? 'No locations for this supplier\'s company'
+                : 'Select location';
+
+        }
 
     }
 
@@ -1419,7 +1470,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 (
                     productUnit.conversion_factor
                         ? ' (' +
-                          productUnit.conversion_factor +
+                          formatQty(productUnit.conversion_factor) +
                           'x)'
                         : ''
                 );
@@ -1451,9 +1502,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ) {
 
             priceInput.value =
-                parseFloat(
-                    product.cost_price
-                ).toFixed(4);
+                formatQty(product.cost_price);
 
         } else {
 
@@ -1537,6 +1586,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     locationSelect.value = '';
 
                 }
+
+
+                filterLocationsForSupplier(supplierCompanyId);
+
+            } else {
+
+                filterLocationsForSupplier(null);
 
             }
 
@@ -1919,7 +1975,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <input
                     type="number"
                     name="items[${index}][unit_price]"
-                    value="${Number(price).toFixed(4)}"
+                    value="${formatQty(price)}"
                     min="0"
                     step="0.0001"
                     class="line-price"
@@ -2050,9 +2106,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         summaryQuantity.textContent =
-            quantityTotal
-                .toFixed(4)
-                .replace(/\.?0+$/, '');
+            formatQty(quantityTotal);
 
 
         itemCountElement.textContent =
@@ -2170,12 +2224,23 @@ document.addEventListener('DOMContentLoaded', function () {
         |--------------------------------------------------------------------------
         */
 
+        const initialSupplier =
+            findSupplier(initialSupplierId);
+
+        filterLocationsForSupplier(
+            initialSupplier
+                ? String(initialSupplier.company_id)
+                : null
+        );
+
         loadSupplierProducts(
             initialSupplierId,
             true
         );
 
     } else {
+
+        filterLocationsForSupplier(null);
 
         resetProductEntry();
 

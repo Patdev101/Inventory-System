@@ -4,105 +4,118 @@
 
 @section('content')
 
-<div class="card">
+<div class="page-header" style="align-items: center;">
+    <div>
+        <h1>Edit Company</h1>
+        <p style="margin: 6px 0 0; color: #64748b;">
+            Update {{ $company->name }}'s company profile.
+        </p>
+    </div>
 
-	<h1>Edit Company</h1>
+    <a href="{{ route('companies.index') }}" class="btn btn-secondary" style="align-self: center;">
+        Back to Companies
+    </a>
+</div>
 
-	<form action="{{ route('companies.update', $company) }}" method="POST">
+<div class="card" style="max-width: 640px; margin: 0 auto;">
 
-		@csrf
-		@method('PUT')
+    <form action="{{ route('companies.update', $company) }}" method="POST">
 
-		<div class="form-group">
-			<label for="name">Company Name</label>
+        @csrf
+        @method('PUT')
 
-			<input
-				type="text"
-				id="name"
-				name="name"
-				value="{{ old('name', $company->name) }}"
-				maxlength="150"
-				required
-			>
+        <div class="form-group">
+            <label for="name">Company Name</label>
 
-			@error('name')
-				<div class="error">{{ $message }}</div>
-			@enderror
-		</div>
+            <input
+                type="text"
+                id="name"
+                name="name"
+                value="{{ old('name', $company->name) }}"
+                maxlength="150"
+                required
+            >
 
-		<div class="form-group">
-			<label for="code">Company Code</label>
+            @error('name')
+                <div class="error">{{ $message }}</div>
+            @enderror
+        </div>
 
-			<input
-				type="text"
-				id="code"
-				name="code"
-				value="{{ old('code', $company->code) }}"
-				maxlength="50"
-				required
-			>
+        <div class="form-group">
+            <label for="code">Company Code</label>
 
-			@error('code')
-				<div class="error">{{ $message }}</div>
-			@enderror
-		</div>
+            <input
+                type="text"
+                id="code"
+                name="code"
+                value="{{ old('code', $company->code) }}"
+                maxlength="50"
+                required
+            >
 
-		<div class="form-group">
-			<label for="address">Address</label>
+            @error('code')
+                <div class="error">{{ $message }}</div>
+            @enderror
+        </div>
 
-			<textarea
-				id="address"
-				name="address"
-				rows="3"
-				maxlength="255"
-			>{{ old('address', $company->address) }}</textarea>
+        <div class="form-group">
+            <label for="address">Address</label>
 
-			@error('address')
-				<div class="error">{{ $message }}</div>
-			@enderror
-		</div>
+            <textarea
+                id="address"
+                name="address"
+                rows="3"
+                maxlength="255"
+            >{{ old('address', $company->address) }}</textarea>
 
-		<div class="form-group">
-			<label for="phone">Phone</label>
+            @error('address')
+                <div class="error">{{ $message }}</div>
+            @enderror
+        </div>
 
-			<input
-				type="text"
-				id="phone"
-				name="phone"
-				value="{{ old('phone', $company->phone) }}"
-				maxlength="30"
-			>
+        <div class="form-group">
+            <label for="phone">Phone</label>
 
-			@error('phone')
-				<div class="error">{{ $message }}</div>
-			@enderror
-		</div>
+            <input
+                type="text"
+                id="phone"
+                name="phone"
+                value="{{ old('phone', $company->phone) }}"
+                maxlength="30"
+            >
 
-		<div class="form-group">
-			<label for="email">Email</label>
+            @error('phone')
+                <div class="error">{{ $message }}</div>
+            @enderror
+        </div>
 
-			<input
-				type="email"
-				id="email"
-				name="email"
-				value="{{ old('email', $company->email) }}"
-				maxlength="150"
-			>
+        <div class="form-group">
+            <label for="email">Email</label>
 
-			@error('email')
-				<div class="error">{{ $message }}</div>
-			@enderror
-		</div>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                value="{{ old('email', $company->email) }}"
+                maxlength="150"
+            >
 
-		<button type="submit" class="btn btn-primary">
-			Update Company
-		</button>
+            @error('email')
+                <div class="error">{{ $message }}</div>
+            @enderror
+        </div>
 
-		<a href="{{ route('companies.index') }}" class="btn btn-secondary">
-			Cancel
-		</a>
+        <div class="actions" style="margin-top: 20px;">
+            <button type="submit" class="btn btn-primary">
+                Update Company
+            </button>
 
-	</form>
+            <a href="{{ route('companies.index') }}" class="btn btn-secondary">
+                Cancel
+            </a>
+        </div>
+
+    </form>
 
 </div>
 

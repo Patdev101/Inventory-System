@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\InventoryTransferReceipt;
 
 class InventoryTransfer extends Model
 {
@@ -20,18 +21,24 @@ class InventoryTransfer extends Model
         'conversion_factor',
         'quantity',
         'base_quantity',
+
+        // Partial receiving
+        'received_quantity',
+        'received_base_quantity',
+
         'reference',
         'notes',
 
-        // pre-existing columns (added by an earlier migration, now
-        // wired up here for the first time)
+        // Transfer status
         'status',
         'received_at',
         'received_by',
 
-        // new audit/receiver workflow columns
+        // Receiver workflow
         'receiver_id',
         'receiver_role',
+
+        // Audit workflow
         'audit_status',
         'audited_by',
         'audited_at',
@@ -42,6 +49,11 @@ class InventoryTransfer extends Model
         'conversion_factor' => 'decimal:4',
         'quantity' => 'decimal:4',
         'base_quantity' => 'decimal:4',
+
+        // Partial receiving
+        'received_quantity' => 'decimal:4',
+        'received_base_quantity' => 'decimal:4',
+
         'received_at' => 'datetime',
         'audited_at' => 'datetime',
     ];
@@ -99,6 +111,14 @@ class InventoryTransfer extends Model
         return $this->belongsTo(
             User::class,
             'audited_by'
+        );
+    }
+
+    public function receipts()
+    {
+        return $this->hasMany(
+            InventoryTransferReceipt::class,
+            'inventory_transfer_id'
         );
     }
 }

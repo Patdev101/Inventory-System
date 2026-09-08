@@ -4,9 +4,20 @@
 
 @section('content')
 
-<div class="card">
+<div class="page-header" style="align-items: center;">
+    <div>
+        <h1>Add Company</h1>
+        <p style="margin: 6px 0 0; color: #64748b;">
+            Register a new company in the system.
+        </p>
+    </div>
 
-    <h1>Add Company</h1>
+    <a href="{{ route('companies.index') }}" class="btn btn-secondary" style="align-self: center;">
+        Back to Companies
+    </a>
+</div>
+
+<div class="card" style="max-width: 640px; margin: 0 auto;">
 
     <form action="{{ route('companies.store') }}" method="POST">
 
@@ -93,13 +104,15 @@
             @enderror
         </div>
 
-        <button type="submit" class="btn btn-primary">
-            Save Company
-        </button>
+        <div class="actions" style="margin-top: 20px;">
+            <button type="submit" class="btn btn-primary">
+                Save Company
+            </button>
 
-        <a href="{{ route('companies.index') }}" class="btn btn-secondary">
-            Cancel
-        </a>
+            <a href="{{ route('companies.index') }}" class="btn btn-secondary">
+                Cancel
+            </a>
+        </div>
 
     </form>
 

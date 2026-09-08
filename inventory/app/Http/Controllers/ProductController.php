@@ -10,10 +10,29 @@ use App\Models\ProductCategory;
 use App\Models\UnitOfMeasure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
+    private function generateUniqueSku(): string
+    {
+        do {
+            $sku = 'SKU-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+        } while (Product::where('sku', $sku)->exists());
+
+        return $sku;
+    }
+
+    private function generateUniqueItemCode(): string
+    {
+        do {
+            $itemCode = 'ITM-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+        } while (Product::where('item_code', $itemCode)->exists());
+
+        return $itemCode;
+    }
+
     public function index()
     {
         $products = Product::with([
@@ -81,6 +100,13 @@ class ProductController extends Controller
                 'unique:products,sku',
             ],
 
+            'item_code' => [
+                'nullable',
+                'string',
+                'max:100',
+                'unique:products,item_code',
+            ],
+
             'description' => [
                 'nullable',
                 'string',
@@ -102,6 +128,12 @@ class ProductController extends Controller
             'is_active' => [
                 'nullable',
                 'boolean',
+            ],
+
+            'image' => [
+                'nullable',
+                'image',
+                'max:4096',
             ],
 
             'units' => [
@@ -138,9 +170,14 @@ class ProductController extends Controller
 
         $pricing = $this->resolvePricing($validated);
 
-        DB::transaction(function () use ($validated, $pricing) {
-    $sku = $validated['sku'] ?? 'SKU-' . strtoupper(uniqid());   
-    
+        $imagePath = $request->hasFile('image')
+            ? $request->file('image')->store('products', 'public')
+            : null;
+
+        DB::transaction(function () use ($validated, $pricing, $imagePath) {
+    $sku = $validated['sku'] ?? $this->generateUniqueSku();
+    $itemCode = $validated['item_code'] ?? $this->generateUniqueItemCode();
+
     $product = Product::create([
             'product_category_id' =>
                 $validated['product_category_id'],
@@ -148,7 +185,9 @@ class ProductController extends Controller
             'name' =>
                 $validated['name'],
 
-            'sku' => $sku, // <--- Fixed: Use the generated variable here!
+            'sku' => $sku,
+
+            'item_code' => $itemCode,
 
             'description' =>
                 $validated['description'] ?? null,
@@ -164,6 +203,8 @@ class ProductController extends Controller
 
             'is_active' =>
                 $validated['is_active'] ?? true,
+
+            'image_path' => $imagePath,
 
             ...$pricing,
         ]);
@@ -276,6 +317,13 @@ class ProductController extends Controller
                 'unique:products,sku,' . $product->id,
             ],
 
+            'item_code' => [
+                'nullable',
+                'string',
+                'max:100',
+                'unique:products,item_code,' . $product->id,
+            ],
+
             'description' => [
                 'nullable',
                 'string',
@@ -295,6 +343,17 @@ class ProductController extends Controller
             ],
 
             'is_active' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'image' => [
+                'nullable',
+                'image',
+                'max:4096',
+            ],
+
+            'remove_image' => [
                 'nullable',
                 'boolean',
             ],
@@ -332,6 +391,15 @@ class ProductController extends Controller
         );
 
         $pricing = $this->resolvePricing($validated);
+
+        $oldImagePath = $product->image_path;
+        $imagePath = $oldImagePath;
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('products', 'public');
+        } elseif ($request->boolean('remove_image')) {
+            $imagePath = null;
+        }
 
         $hasInventoryHistory =
             Inventory::where(
@@ -445,7 +513,8 @@ class ProductController extends Controller
             $validated,
             $product,
             $hasInventoryHistory,
-            $pricing
+            $pricing,
+            $imagePath
         ) {
             $product->update([
                 'product_category_id' =>
@@ -455,7 +524,10 @@ class ProductController extends Controller
                     $validated['name'],
 
                 'sku' =>
-                    $validated['sku'] ?? null,
+                    $validated['sku'] ?? $product->sku,
+
+                'item_code' =>
+                    $validated['item_code'] ?? $product->item_code,
 
                 'description' =>
                     $validated['description'] ?? null,
@@ -471,6 +543,8 @@ class ProductController extends Controller
 
                 'is_active' =>
                     $validated['is_active'] ?? false,
+
+                'image_path' => $imagePath,
 
                 ...$pricing,
             ]);
@@ -566,6 +640,10 @@ class ProductController extends Controller
                 }
             }
         });
+
+        if ($oldImagePath && $oldImagePath !== $imagePath) {
+            Storage::disk('public')->delete($oldImagePath);
+        }
 
         return redirect()
             ->route('products.index')
@@ -668,11 +746,17 @@ class ProductController extends Controller
                 );
         }
 
+        $imagePath = $product->image_path;
+
         DB::transaction(function () use ($product) {
             $product->productUnits()->delete();
 
             $product->delete();
         });
+
+        if ($imagePath) {
+            Storage::disk('public')->delete($imagePath);
+        }
 
         return redirect()
             ->route('products.index')

@@ -292,7 +292,7 @@
 
             <div class="current-value">
 
-                {{ number_format((float) $inventory->quantity, 4) }}
+                {{ format_qty((float) $inventory->quantity) }}
 
                 @if (
                     $inventory->productUnit &&
@@ -307,7 +307,7 @@
 
             <div class="help-text">
 
-                {{ number_format((float) $inventory->base_quantity, 4) }}
+                {{ format_qty((float) $inventory->base_quantity) }}
 
                 base units
 
@@ -752,6 +752,14 @@
 
 <script>
 
+function formatQty(value) {
+    const num = Number(value);
+    if (!isFinite(num)) {
+        return String(value);
+    }
+    return parseFloat(num.toFixed(2)).toString();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
     const productSelect =
@@ -1027,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', function () {
             movementPreview.innerHTML =
                 '<span class="adjustment-in">' +
                 '+' +
-                quantity.toFixed(4) +
+                formatQty(quantity) +
                 ' units (IN)' +
                 '</span>';
 
@@ -1040,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', function () {
             movementPreview.innerHTML =
                 '<span class="adjustment-out">' +
                 '-' +
-                quantity.toFixed(4) +
+                formatQty(quantity) +
                 ' units (OUT)' +
                 '</span>';
 
@@ -1048,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         baseMovementPreview.textContent =
-            movementBaseQuantity.toFixed(4) +
+            formatQty(movementBaseQuantity) +
             ' base units';
 
 
@@ -1070,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         newStockPreview.textContent =
-            newBaseQuantity.toFixed(4) +
+            formatQty(newBaseQuantity) +
             ' base units';
 
 
@@ -1079,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', function () {
             previewMessage.innerHTML =
                 '<span class="adjustment-in">' +
                 'Stock will increase by ' +
-                movementBaseQuantity.toFixed(4) +
+                formatQty(movementBaseQuantity) +
                 ' base units.' +
                 '</span>';
 
@@ -1088,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', function () {
             previewMessage.innerHTML =
                 '<span class="adjustment-out">' +
                 'Stock will decrease by ' +
-                movementBaseQuantity.toFixed(4) +
+                formatQty(movementBaseQuantity) +
                 ' base units.' +
                 '</span>';
 

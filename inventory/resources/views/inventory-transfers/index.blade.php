@@ -285,7 +285,7 @@
                             </td>
 
                             <td>
-                                {{ $transfer->created_at->format('Y-m-d H:i:s') }}
+                                {{ format_datetime($transfer->created_at) }}
                             </td>
 
                             <td>
@@ -303,12 +303,12 @@
                             </td>
 
                             <td>
-                                {{ number_format((float) $transfer->quantity, 4) }}
+                                {{ format_qty((float) $transfer->quantity) }}
                                 {{ $transfer->productUnit?->unitOfMeasure?->code ?? '' }}
                             </td>
 
                             <td>
-                                {{ number_format((float) $transfer->base_quantity, 4) }}
+                                {{ format_qty((float) $transfer->base_quantity) }}
                                 base units
                             </td>
 

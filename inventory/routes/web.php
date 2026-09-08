@@ -4,6 +4,8 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PurchaseOrderEmailController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InventoryTransactionController;
 use App\Http\Controllers\InventoryTransferController;
@@ -81,6 +83,23 @@ Route::middleware('auth')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | Notifications
+    |--------------------------------------------------------------------------
+    */
+
+    Route::patch('/notifications/read-all', [
+        NotificationController::class,
+        'readAll',
+    ])->name('notifications.read-all');
+
+    Route::patch('/notifications/{notification}/read', [
+        NotificationController::class,
+        'read',
+    ])->name('notifications.read');
+
+
+    /*
+    |--------------------------------------------------------------------------
     | My Account
     |--------------------------------------------------------------------------
     */
@@ -99,6 +118,11 @@ Route::middleware('auth')->group(function () {
         AccountController::class,
         'updatePassword',
     ])->name('account.password.update');
+
+    Route::post('/account/test-email', [
+        AccountController::class,
+        'sendTestEmail',
+    ])->name('account.test-email');
 
 
     /*
@@ -724,5 +748,41 @@ Route::middleware('auth')->group(function () {
             'show',
         ]
     )->name('purchase-orders.show');
+
+    Route::get(
+        '/purchase-orders/{purchaseOrder}/pdf',
+        [
+            PurchaseOrderController::class,
+            'downloadPdf',
+        ]
+    )->name('purchase-orders.pdf');
+
+    Route::get(
+        '/purchase-orders/{purchaseOrder}/email',
+        [
+            PurchaseOrderController::class,
+            'composeEmail',
+        ]
+    )->name('purchase-orders.email.compose');
+
+    Route::post(
+        '/purchase-orders/{purchaseOrder}/email',
+        [
+            PurchaseOrderController::class,
+            'sendEmail',
+        ]
+    )->name('purchase-orders.email.send');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Purchase Order Emails (global sent log)
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/purchase-order-emails', [
+        PurchaseOrderEmailController::class,
+        'index',
+    ])->name('purchase-order-emails.index');
 
 });

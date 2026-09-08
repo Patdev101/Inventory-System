@@ -125,4 +125,31 @@
 
 </div>
 
+
+@if ($user->isAdmin())
+
+    <div class="card">
+
+        <h2>Email Configuration</h2>
+
+        <p style="color: #6b7280; margin-top: -8px;">
+            Current mail driver: <strong>{{ config('mail.default') }}</strong>
+
+            @if (config('mail.default') === 'log')
+                &mdash; emails are written to <code>storage/logs/laravel.log</code> instead of being delivered.
+            @endif
+        </p>
+
+        <form action="{{ route('account.test-email') }}" method="POST">
+            @csrf
+
+            <button type="submit" class="btn btn-secondary">
+                Send Test Email
+            </button>
+        </form>
+
+    </div>
+
+@endif
+
 @endsection

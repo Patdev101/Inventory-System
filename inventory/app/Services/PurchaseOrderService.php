@@ -20,9 +20,7 @@ use Illuminate\Validation\ValidationException;
  *
  * Inventory is only affected when goods are actually received.
  *
- * All stock changes go through InventoryMovementService so the
- * application's normal base-unit conversion and inventory transaction
- * audit trail remain consistent.
+ * All stock changes go through InventoryMovementService.
  */
 class PurchaseOrderService
 {
@@ -100,6 +98,17 @@ class PurchaseOrderService
                 ]);
             }
 
+            $this->logActivity(
+                purchaseOrder: $purchaseOrder,
+                userId: $createdByUserId,
+                action: 'created',
+                description: 'Purchase order created as a draft.',
+                metadata: [
+                    'status' => PurchaseOrder::STATUS_DRAFT,
+                    'item_count' => count($items),
+                ]
+            );
+
             return $purchaseOrder->fresh([
                 'items',
             ]);
@@ -112,7 +121,8 @@ class PurchaseOrderService
      * draft -> pending_approval
      */
     public function submitForApproval(
-        PurchaseOrder $purchaseOrder
+        PurchaseOrder $purchaseOrder,
+        int $userId
     ): PurchaseOrder {
         if (!$purchaseOrder->isEditable()) {
             throw ValidationException::withMessages([
@@ -128,9 +138,28 @@ class PurchaseOrderService
             ]);
         }
 
-        $purchaseOrder->update([
-            'status' => PurchaseOrder::STATUS_PENDING_APPROVAL,
-        ]);
+        $oldStatus = $purchaseOrder->status;
+
+        DB::transaction(function () use (
+            $purchaseOrder,
+            $userId,
+            $oldStatus
+        ) {
+            $purchaseOrder->update([
+                'status' => PurchaseOrder::STATUS_PENDING_APPROVAL,
+            ]);
+
+            $this->logActivity(
+                purchaseOrder: $purchaseOrder,
+                userId: $userId,
+                action: 'submitted_for_approval',
+                description: 'Purchase order submitted for approval.',
+                metadata: [
+                    'from_status' => $oldStatus,
+                    'to_status' => PurchaseOrder::STATUS_PENDING_APPROVAL,
+                ]
+            );
+        });
 
         return $purchaseOrder->fresh();
     }
@@ -152,13 +181,31 @@ class PurchaseOrderService
             ]);
         }
 
-        $purchaseOrder->update([
-            'status' => PurchaseOrder::STATUS_APPROVED,
-            'approved_by' => $approverUserId,
-            'approved_at' => now(),
-            'approval_notes' => $notes,
-            'rejection_reason' => null,
-        ]);
+        DB::transaction(function () use (
+            $purchaseOrder,
+            $approverUserId,
+            $notes
+        ) {
+            $purchaseOrder->update([
+                'status' => PurchaseOrder::STATUS_APPROVED,
+                'approved_by' => $approverUserId,
+                'approved_at' => now(),
+                'approval_notes' => $notes,
+                'rejection_reason' => null,
+            ]);
+
+            $this->logActivity(
+                purchaseOrder: $purchaseOrder,
+                userId: $approverUserId,
+                action: 'approved',
+                description: 'Purchase order approved.',
+                metadata: [
+                    'from_status' => PurchaseOrder::STATUS_PENDING_APPROVAL,
+                    'to_status' => PurchaseOrder::STATUS_APPROVED,
+                    'approval_notes' => $notes,
+                ]
+            );
+        });
 
         return $purchaseOrder->fresh();
     }
@@ -189,12 +236,30 @@ class PurchaseOrderService
             ]);
         }
 
-        $purchaseOrder->update([
-            'status' => PurchaseOrder::STATUS_REJECTED,
-            'approved_by' => $approverUserId,
-            'approved_at' => now(),
-            'rejection_reason' => $reason,
-        ]);
+        DB::transaction(function () use (
+            $purchaseOrder,
+            $approverUserId,
+            $reason
+        ) {
+            $purchaseOrder->update([
+                'status' => PurchaseOrder::STATUS_REJECTED,
+                'approved_by' => $approverUserId,
+                'approved_at' => now(),
+                'rejection_reason' => $reason,
+            ]);
+
+            $this->logActivity(
+                purchaseOrder: $purchaseOrder,
+                userId: $approverUserId,
+                action: 'rejected',
+                description: 'Purchase order rejected.',
+                metadata: [
+                    'from_status' => PurchaseOrder::STATUS_PENDING_APPROVAL,
+                    'to_status' => PurchaseOrder::STATUS_REJECTED,
+                    'rejection_reason' => $reason,
+                ]
+            );
+        });
 
         return $purchaseOrder->fresh();
     }
@@ -207,7 +272,8 @@ class PurchaseOrderService
      * This does not affect inventory.
      */
     public function markOrdered(
-        PurchaseOrder $purchaseOrder
+        PurchaseOrder $purchaseOrder,
+        int $userId
     ): PurchaseOrder {
         if (!$purchaseOrder->isApproved()) {
             throw ValidationException::withMessages([
@@ -216,9 +282,25 @@ class PurchaseOrderService
             ]);
         }
 
-        $purchaseOrder->update([
-            'status' => PurchaseOrder::STATUS_ORDERED,
-        ]);
+        DB::transaction(function () use (
+            $purchaseOrder,
+            $userId
+        ) {
+            $purchaseOrder->update([
+                'status' => PurchaseOrder::STATUS_ORDERED,
+            ]);
+
+            $this->logActivity(
+                purchaseOrder: $purchaseOrder,
+                userId: $userId,
+                action: 'ordered',
+                description: 'Purchase order marked as ordered.',
+                metadata: [
+                    'from_status' => PurchaseOrder::STATUS_APPROVED,
+                    'to_status' => PurchaseOrder::STATUS_ORDERED,
+                ]
+            );
+        });
 
         return $purchaseOrder->fresh();
     }
@@ -237,16 +319,7 @@ class PurchaseOrderService
      * 2. Create receipt line items.
      * 3. Increase PurchaseOrderItem.quantity_received.
      * 4. Add the received quantity to inventory.
-     * 5. Create the normal inventory transaction through
-     *    InventoryMovementService.
-     *
-     * If every line is fully received:
-     *
-     * partially_received/ordered -> completed
-     *
-     * Otherwise:
-     *
-     * ordered -> partially_received
+     * 5. Create the normal inventory transaction.
      */
     public function receiveItems(
         PurchaseOrder $purchaseOrder,
@@ -263,12 +336,6 @@ class PurchaseOrderService
                     'This purchase order is not open for receiving.',
             ]);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Keep only lines with a positive received quantity
-        |--------------------------------------------------------------------------
-        */
 
         $nonZeroLines = array_filter(
             $lines,
@@ -290,16 +357,6 @@ class PurchaseOrderService
             $nonZeroLines,
             $notes
         ) {
-            /*
-            |--------------------------------------------------------------------------
-            | Lock the PO
-            |--------------------------------------------------------------------------
-            |
-            | This prevents two receiving requests from modifying the same
-            | purchase order simultaneously.
-            |
-            */
-
             $purchaseOrder = PurchaseOrder::query()
                 ->whereKey($purchaseOrder->id)
                 ->lockForUpdate()
@@ -315,11 +372,7 @@ class PurchaseOrderService
                 ]);
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Create receipt header
-            |--------------------------------------------------------------------------
-            */
+            $oldStatus = $purchaseOrder->status;
 
             $receipt = PurchaseOrderReceipt::create([
                 'purchase_order_id' => $purchaseOrder->id,
@@ -328,11 +381,7 @@ class PurchaseOrderService
                 'notes' => $notes,
             ]);
 
-            /*
-            |--------------------------------------------------------------------------
-            | Process each received line
-            |--------------------------------------------------------------------------
-            */
+            $receivedLines = [];
 
             foreach ($nonZeroLines as $line) {
                 $purchaseOrderItemId =
@@ -351,12 +400,6 @@ class PurchaseOrderService
                 if ($quantityReceivedNow <= 0) {
                     continue;
                 }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Lock the PO item
-                |--------------------------------------------------------------------------
-                */
 
                 $item = PurchaseOrderItem::query()
                     ->where('purchase_order_id', $purchaseOrder->id)
@@ -377,18 +420,10 @@ class PurchaseOrderService
                 $quantityAlreadyReceived =
                     (float) $item->quantity_received;
 
-                $remaining =
-                    round(
-                        $quantityOrdered -
-                        $quantityAlreadyReceived,
-                        4
-                    );
-
-                /*
-                |--------------------------------------------------------------------------
-                | Prevent over-receiving
-                |--------------------------------------------------------------------------
-                */
+                $remaining = round(
+                    $quantityOrdered - $quantityAlreadyReceived,
+                    4
+                );
 
                 if ($remaining <= 0.0000001) {
                     throw ValidationException::withMessages([
@@ -398,8 +433,7 @@ class PurchaseOrderService
                 }
 
                 if (
-                    $quantityReceivedNow -
-                    $remaining >
+                    $quantityReceivedNow - $remaining >
                     0.0000001
                 ) {
                     throw ValidationException::withMessages([
@@ -408,46 +442,21 @@ class PurchaseOrderService
                     ]);
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | Create receipt line
-                |--------------------------------------------------------------------------
-                */
-
                 $receipt->items()->create([
                     'purchase_order_item_id' => $item->id,
                     'quantity_received' => $quantityReceivedNow,
                     'notes' => $line['notes'] ?? null,
                 ]);
 
-                /*
-                |--------------------------------------------------------------------------
-                | Update PO received quantity
-                |--------------------------------------------------------------------------
-                */
-
-                $newReceivedQuantity =
-                    round(
-                        $quantityAlreadyReceived +
-                        $quantityReceivedNow,
-                        4
-                    );
+                $newReceivedQuantity = round(
+                    $quantityAlreadyReceived +
+                    $quantityReceivedNow,
+                    4
+                );
 
                 $item->update([
-                    'quantity_received' =>
-                        $newReceivedQuantity,
+                    'quantity_received' => $newReceivedQuantity,
                 ]);
-
-                /*
-                |--------------------------------------------------------------------------
-                | Add received stock
-                |--------------------------------------------------------------------------
-                |
-                | InventoryMovementService is the single place responsible
-                | for converting the selected product unit into base quantity
-                | and recording the inventory transaction.
-                |
-                */
 
                 $this->movementService->addStock(
                     productId: (int) $item->product_id,
@@ -456,13 +465,13 @@ class PurchaseOrderService
                     quantity: $quantityReceivedNow,
                     reference: 'PO #' . $purchaseOrder->po_number
                 );
-            }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Recalculate PO status
-            |--------------------------------------------------------------------------
-            */
+                $receivedLines[] = [
+                    'purchase_order_item_id' => $item->id,
+                    'product_id' => (int) $item->product_id,
+                    'quantity_received' => $quantityReceivedNow,
+                ];
+            }
 
             $purchaseOrder->load([
                 'items',
@@ -478,11 +487,29 @@ class PurchaseOrderService
                     }
                 );
 
+            $newStatus = $allFullyReceived
+                ? PurchaseOrder::STATUS_COMPLETED
+                : PurchaseOrder::STATUS_PARTIALLY_RECEIVED;
+
             $purchaseOrder->update([
-                'status' => $allFullyReceived
-                    ? PurchaseOrder::STATUS_COMPLETED
-                    : PurchaseOrder::STATUS_PARTIALLY_RECEIVED,
+                'status' => $newStatus,
             ]);
+
+            $this->logActivity(
+                purchaseOrder: $purchaseOrder,
+                userId: $receivedByUserId,
+                action: 'received',
+                description: $allFullyReceived
+                    ? 'Purchase order fully received and completed.'
+                    : 'Purchase order receiving recorded.',
+                metadata: [
+                    'receipt_id' => $receipt->id,
+                    'from_status' => $oldStatus,
+                    'to_status' => $newStatus,
+                    'lines' => $receivedLines,
+                    'notes' => $notes,
+                ]
+            );
 
             return $purchaseOrder->fresh([
                 'items',
@@ -499,9 +526,6 @@ class PurchaseOrderService
      * PO-000001
      * PO-000002
      * PO-000003
-     *
-     * The numeric suffix is based on the highest existing PO number,
-     * rather than COUNT(), so deleted POs do not cause duplicates.
      */
     private function generatePoNumber(): string
     {
@@ -511,8 +535,7 @@ class PurchaseOrderService
             )
             ->value('max_number');
 
-        $nextNumber =
-            ((int) $lastNumber) + 1;
+        $nextNumber = ((int) $lastNumber) + 1;
 
         return 'PO-' .
             str_pad(
@@ -521,5 +544,23 @@ class PurchaseOrderService
                 '0',
                 STR_PAD_LEFT
             );
+    }
+
+    /**
+     * Record an activity/audit log for a purchase order.
+     */
+    private function logActivity(
+        PurchaseOrder $purchaseOrder,
+        int $userId,
+        string $action,
+        string $description,
+        array $metadata = []
+    ): void {
+        $purchaseOrder->activityLogs()->create([
+            'user_id' => $userId,
+            'action' => $action,
+            'description' => $description,
+            'metadata' => $metadata ?: null,
+        ]);
     }
 }

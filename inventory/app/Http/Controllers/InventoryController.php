@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Company;
 use App\Models\Inventory;
 use App\Models\InventoryTransaction;
 use App\Models\Location;
 use App\Models\Product;
 use App\Models\StockMovementRequest;
 use App\Models\User;
+use App\Notifications\StockMovementRequestSubmitted;
 use App\Services\InventoryMovementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +66,8 @@ $search = trim($request->input('search', ''));
  */
 public function create()
 {
+    $companies = Company::orderBy('name')->get();
+
     $products = Product::where('is_active', true)
         ->with('productUnits.unitOfMeasure')
         ->orderBy('name')
@@ -75,7 +79,7 @@ public function create()
 
     return view(
         'inventories.create',
-        compact('products', 'locations')
+        compact('companies', 'products', 'locations')
     );
 }
 
@@ -114,7 +118,7 @@ public function store(Request $request)
     ]);
 
     if ($request->user()?->hasRole(User::ROLE_STAFF)) {
-        StockMovementRequest::create([
+        $stockMovementRequest = StockMovementRequest::create([
             'inventory_id' => null,
             'product_id' => $validated['product_id'],
             'location_id' => $validated['location_id'],
@@ -124,6 +128,8 @@ public function store(Request $request)
             'status' => StockMovementRequest::STATUS_PENDING,
             'requested_by' => $request->user()->id,
         ]);
+
+        $this->notifyApprovers($stockMovementRequest);
 
         return redirect()
             ->route('inventories.index')
@@ -277,7 +283,7 @@ public function update(
     ]);
 
     if ($request->user()?->hasRole(User::ROLE_STAFF)) {
-        StockMovementRequest::create([
+        $stockMovementRequest = StockMovementRequest::create([
             'inventory_id' => $inventory->id,
             'product_id' => $validated['product_id'],
             'location_id' => $validated['location_id'],
@@ -287,6 +293,8 @@ public function update(
             'status' => StockMovementRequest::STATUS_PENDING,
             'requested_by' => $request->user()->id,
         ]);
+
+        $this->notifyApprovers($stockMovementRequest);
 
         return redirect()
             ->route('inventories.show', $inventory)
@@ -404,7 +412,7 @@ public function requestTransfer(Request $request, Inventory $inventory)
     }
 
     if ($request->user()?->hasRole(User::ROLE_STAFF)) {
-        StockMovementRequest::create([
+        $stockMovementRequest = StockMovementRequest::create([
             'inventory_id' => $sourceInventory->id,
             'product_id' => $inventory->product_id,
             'location_id' => $sourceInventory->location_id,
@@ -415,6 +423,8 @@ public function requestTransfer(Request $request, Inventory $inventory)
             'status' => StockMovementRequest::STATUS_PENDING,
             'requested_by' => $request->user()->id,
         ]);
+
+        $this->notifyApprovers($stockMovementRequest);
 
         return redirect()
             ->route('inventories.show', $inventory)
@@ -489,6 +499,23 @@ public function destroy(Inventory $inventory)
             'success',
             'Inventory deleted successfully.'
         );
+}
+
+/**
+ * Notify every admin/manager that a staff-submitted stock movement
+ * request is waiting for their approval.
+ */
+private function notifyApprovers(StockMovementRequest $stockMovementRequest): void
+{
+    User::query()
+        ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_MANAGER])
+        ->where('is_active', true)
+        ->get()
+        ->each(function (User $approver) use ($stockMovementRequest) {
+            $approver->notify(
+                new StockMovementRequestSubmitted($stockMovementRequest)
+            );
+        });
 }
 
 }

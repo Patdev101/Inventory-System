@@ -681,7 +681,7 @@
 
                             {{-- Date --}}
                             <td>
-                                {{ $transaction->created_at?->format('Y-m-d H:i:s') }}
+                                {{ format_datetime($transaction->created_at) }}
                             </td>
 
 
@@ -752,10 +752,7 @@
                             {{-- Quantity --}}
                             <td>
 
-                                {{ number_format(
-                                    (float) $transaction->quantity,
-                                    4
-                                ) }}
+                                {{ format_qty((float) $transaction->quantity) }}
 
                                 @if ($transaction->productUnit?->unitOfMeasure)
 
@@ -773,20 +770,14 @@
 
                                     <span class="base-positive">
                                         +
-                                        {{ number_format(
-                                            (float) $transaction->base_quantity,
-                                            4
-                                        ) }}
+                                        {{ format_qty((float) $transaction->base_quantity) }}
                                     </span>
 
                                 @else
 
                                     <span class="base-negative">
                                         -
-                                        {{ number_format(
-                                            (float) $transaction->base_quantity,
-                                            4
-                                        ) }}
+                                        {{ format_qty((float) $transaction->base_quantity) }}
                                     </span>
 
                                 @endif

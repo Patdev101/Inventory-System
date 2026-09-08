@@ -8,15 +8,31 @@ use App\Models\InventoryTransfer;
 use App\Models\Product;
 use App\Models\Location;
 use App\Services\StockAlertService;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     /**
      * Display the inventory dashboard.
      */
-    public function index(StockAlertService $stockAlertService)
+    public function index(StockAlertService $stockAlertService, Request $request)
     {
         $stockAlertService->synchronize();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Notifications
+        |--------------------------------------------------------------------------
+        */
+
+        $notifications = $request->user()
+            ->notifications()
+            ->take(10)
+            ->get();
+
+        $unreadNotificationsCount = $request->user()
+            ->unreadNotifications()
+            ->count();
 
         /*
         |--------------------------------------------------------------------------
@@ -349,7 +365,9 @@ class DashboardController extends Controller
                 'chartTransactions',
                 'chartDates',
                 'chartIn',
-                'chartOut'
+                'chartOut',
+                'notifications',
+                'unreadNotificationsCount'
             )
         );
     }

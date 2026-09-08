@@ -13,58 +13,15 @@
     </div>
 
     @if (auth()->user()->hasRole('admin'))
-        <a
-            href="{{ route('suppliers.create') }}"
-            class="btn btn-primary"
-        >
-            Add Supplier
+        <a href="{{ route('suppliers.create') }}" class="btn btn-primary">
+            + Add Supplier
         </a>
     @endif
 </div>
 
-{{-- SUCCESS MESSAGE --}}
-@if (session('success'))
-    <div
-        style="
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            color: #065f46;
-        "
-    >
-        {{ session('success') }}
-    </div>
-@endif
-
-{{-- ERROR MESSAGE --}}
-@if (session('error'))
-    <div
-        style="
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            color: #991b1b;
-        "
-    >
-        {{ session('error') }}
-    </div>
-@endif
 
 @if ($errors->any())
-    <div
-        style="
-            background: #ffeeee;
-            border: 1px solid #f5c6cb;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            color: #721c24;
-        "
-    >
+    <div class="alert-error">
         <strong>Please fix the following:</strong>
 
         <ul style="margin: 10px 0 0; padding-left: 20px;">
@@ -77,32 +34,11 @@
 
 <div class="card">
 
-    {{-- =========================
-         SEARCH
-    ========================== --}}
-    <form
-        action="{{ route('suppliers.index') }}"
-        method="GET"
-        style="
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        "
-    >
-        <div style="flex: 1; min-width: 240px;">
+    {{-- SEARCH --}}
+    <form action="{{ route('suppliers.index') }}" method="GET" class="supplier-search-form">
 
-            <label
-                for="search"
-                style="
-                    font-weight: bold;
-                    display: block;
-                    margin-bottom: 6px;
-                "
-            >
-                Search Suppliers
-            </label>
+        <div class="form-group" style="flex: 1; min-width: 240px; margin-bottom: 0;">
+            <label for="search">Search Suppliers</label>
 
             <input
                 type="text"
@@ -110,467 +46,111 @@
                 name="search"
                 value="{{ $search }}"
                 placeholder="Search by supplier, contact, email, or phone..."
-                style="
-                    width: 100%;
-                    padding: 8px;
-                    border: 1px solid #cbd5e1;
-                    border-radius: 6px;
-                "
             >
-
         </div>
 
-        <div
-            style="
-                display: flex;
-                gap: 8px;
-                flex-wrap: wrap;
-            "
-        >
-
-            <button
-                type="submit"
-                class="btn btn-primary"
-            >
-                Search
-            </button>
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary">Search</button>
 
             @if ($search !== '')
-                <a
-                    href="{{ route('suppliers.index') }}"
-                    class="btn btn-secondary"
-                    style="text-decoration: none;"
-                >
-                    Clear
-                </a>
+                <a href="{{ route('suppliers.index') }}" class="btn btn-secondary">Clear</a>
             @endif
-
         </div>
     </form>
 
 
-    {{-- =========================
-         RESULTS INFO
-    ========================== --}}
-    <div
-        style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-            padding: 10px 12px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-        "
-    >
-
-        <div
-            style="
-                font-size: 13px;
-                color: #475569;
-            "
-        >
-
+    {{-- RESULTS INFO --}}
+    <div class="results-info">
+        <span>
             @if ($suppliers->total() > 0)
-
-                Showing
-                {{ $suppliers->firstItem() }}-{{ $suppliers->lastItem() }}
-                of
-                {{ $suppliers->total() }}
-                suppliers
-
+                Showing {{ $suppliers->firstItem() }}-{{ $suppliers->lastItem() }} of {{ $suppliers->total() }} suppliers
             @else
-
                 No suppliers found
-
             @endif
-
-        </div>
-
-        <div
-            style="
-                font-size: 13px;
-                color: #475569;
-            "
-        >
-            {{ $suppliers->total() }} total
-        </div>
-
+        </span>
     </div>
 
 
-    {{-- =========================
-         SUPPLIER TABLE
-    ========================== --}}
-    <div style="overflow-x: auto;">
-
-        <table
-            style="
-                width: 100%;
-                border-collapse: collapse;
-                text-align: left;
-            "
-        >
-
+    {{-- SUPPLIER TABLE --}}
+    <div class="table-wrapper" style="border: none; box-shadow: none;">
+        <table>
             <thead>
-
-                <tr
-                    style="
-                        background: #f8fafc;
-                        border-bottom: 2px solid #e2e8f0;
-                    "
-                >
-
-                    <th style="padding: 10px;">
-                        Supplier
-                    </th>
-
-                    <th style="padding: 10px;">
-                        Contact
-                    </th>
-
-                    <th style="padding: 10px;">
-                        Phone
-                    </th>
-
-                    <th style="padding: 10px;">
-                        Email
-                    </th>
-
-                    <th style="padding: 10px;">
-                        Company
-                    </th>
-
-                    <th
-                        style="
-                            padding: 10px;
-                            text-align: center;
-                        "
-                    >
-                        Status
-                    </th>
-
-                    <th
-                        style="
-                            padding: 10px;
-                            text-align: right;
-                        "
-                    >
-                        Actions
-                    </th>
-
+                <tr>
+                    <th>Supplier</th>
+                    <th>Contact</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Company</th>
+                    <th style="text-align: center;">Status</th>
+                    <th style="text-align: right;">Actions</th>
                 </tr>
-
             </thead>
 
-
             <tbody>
-
                 @forelse ($suppliers as $supplier)
-
-                    <tr
-                        style="
-                            border-bottom: 1px solid #e2e8f0;
-                        "
-                    >
-
-                        {{-- =========================
-                             SUPPLIER
-                        ========================== --}}
-                        <td
-                            style="
-                                padding: 12px;
-                                vertical-align: top;
-                            "
-                        >
-
-                            <div
-                                style="
-                                    font-weight: 600;
-                                    color: #1e293b;
-                                "
-                            >
-                                {{ $supplier->name }}
-                            </div>
-
-                            <div
-                                style="
-                                    font-size: 12px;
-                                    color: #64748b;
-                                    margin-top: 2px;
-                                "
-                            >
-                                Supplier #{{ $supplier->id }}
-                            </div>
-
-                        </td>
-
-
-                        {{-- =========================
-                             CONTACT
-                        ========================== --}}
-                        <td
-                            style="
-                                padding: 12px;
-                                vertical-align: top;
-                            "
-                        >
-
-                            @if ($supplier->contact_name)
-
-                                <div style="color: #334155;">
-                                    {{ $supplier->contact_name }}
+                    <tr>
+                        <td>
+                            <div class="entity-cell">
+                                <span class="entity-avatar">
+                                    {{ strtoupper(substr($supplier->name, 0, 1)) }}
+                                </span>
+                                <div>
+                                    <div class="entity-name">{{ $supplier->name }}</div>
+                                    <div class="entity-subtext">Supplier #{{ $supplier->id }}</div>
                                 </div>
-
-                            @else
-
-                                <span style="color: #94a3b8;">
-                                    —
-                                </span>
-
-                            @endif
-
+                            </div>
                         </td>
 
+                        <td>{{ $supplier->contact_name ?: '—' }}</td>
+                        <td>{{ $supplier->phone ?: '—' }}</td>
+                        <td>{{ $supplier->email ?: '—' }}</td>
+                        <td>{{ $supplier->company->name ?? '—' }}</td>
 
-                        {{-- =========================
-                             PHONE
-                        ========================== --}}
-                        <td
-                            style="
-                                padding: 12px;
-                                vertical-align: top;
-                            "
-                        >
-
-                            @if ($supplier->phone)
-
-                                {{ $supplier->phone }}
-
-                            @else
-
-                                <span style="color: #94a3b8;">
-                                    —
-                                </span>
-
-                            @endif
-
-                        </td>
-
-
-                        {{-- =========================
-                             EMAIL
-                        ========================== --}}
-                        <td
-                            style="
-                                padding: 12px;
-                                vertical-align: top;
-                            "
-                        >
-
-                            @if ($supplier->email)
-
-                                {{ $supplier->email }}
-
-                            @else
-
-                                <span style="color: #94a3b8;">
-                                    —
-                                </span>
-
-                            @endif
-
-                        </td>
-
-
-                        {{-- =========================
-                             COMPANY
-                        ========================== --}}
-                        <td
-                            style="
-                                padding: 12px;
-                                vertical-align: top;
-                            "
-                        >
-
-                            @if ($supplier->company)
-
-                                {{ $supplier->company->name }}
-
-                            @else
-
-                                <span style="color: #94a3b8;">
-                                    —
-                                </span>
-
-                            @endif
-
-                        </td>
-
-
-                        {{-- =========================
-                             STATUS
-                        ========================== --}}
-                        <td
-                            style="
-                                padding: 12px;
-                                vertical-align: top;
-                                text-align: center;
-                            "
-                        >
-
+                        <td style="text-align: center;">
                             @if ($supplier->is_active)
-
-                                <span
-                                    style="
-                                        display: inline-block;
-                                        padding: 4px 10px;
-                                        background: #dcfce7;
-                                        color: #166534;
-                                        border-radius: 999px;
-                                        font-size: 12px;
-                                        font-weight: 600;
-                                    "
-                                >
-                                    Active
-                                </span>
-
+                                <span class="status-badge status-active">Active</span>
                             @else
-
-                                <span
-                                    style="
-                                        display: inline-block;
-                                        padding: 4px 10px;
-                                        background: #fee2e2;
-                                        color: #991b1b;
-                                        border-radius: 999px;
-                                        font-size: 12px;
-                                        font-weight: 600;
-                                    "
-                                >
-                                    Inactive
-                                </span>
-
+                                <span class="status-badge status-inactive">Inactive</span>
                             @endif
-
                         </td>
 
+                        <td>
+                            <div class="actions" style="justify-content: flex-end;">
 
-                        {{-- =========================
-                             ACTIONS
-                        ========================== --}}
-                        <td
-                            style="
-                                padding: 12px;
-                                vertical-align: top;
-                                text-align: right;
-                            "
-                        >
-
-                            <div
-                                style="
-                                    display: flex;
-                                    justify-content: flex-end;
-                                    gap: 6px;
-                                    flex-wrap: wrap;
-                                "
-                            >
-
-                                {{-- VIEW --}}
-                                <a
-                                    href="{{ route('suppliers.show', $supplier) }}"
-                                    class="btn btn-secondary"
-                                    style="
-                                        text-decoration: none;
-                                    "
-                                >
+                                <a href="{{ route('suppliers.show', $supplier) }}" class="btn btn-primary">
                                     View
                                 </a>
 
-
                                 @if (auth()->user()->hasRole('admin'))
 
-                                    {{-- EDIT --}}
-                                    <a
-                                        href="{{ route('suppliers.edit', $supplier) }}"
-                                        class="btn btn-secondary"
-                                        style="
-                                            text-decoration: none;
-                                        "
-                                    >
+                                    <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-secondary">
                                         Edit
                                     </a>
 
-
-                                    {{-- =========================
-                                         ACTIVE SUPPLIER
-                                         SHOW DEACTIVATE
-                                    ========================== --}}
                                     @if ($supplier->is_active)
 
                                         <form
                                             action="{{ route('suppliers.deactivate', $supplier) }}"
                                             method="POST"
-                                            style="display: inline;"
                                             onsubmit="return confirm('Deactivate this supplier?');"
                                         >
-
                                             @csrf
                                             @method('PATCH')
 
-                                            <button
-                                                type="submit"
-                                                class="btn"
-                                                style="
-                                                    background: #dc2626;
-                                                    color: #ffffff;
-                                                    border: 1px solid #dc2626;
-                                                    padding: 7px 12px;
-                                                    border-radius: 6px;
-                                                    cursor: pointer;
-                                                    font-weight: 500;
-                                                "
-                                            >
+                                            <button type="submit" class="btn btn-danger">
                                                 Deactivate
                                             </button>
-
                                         </form>
 
-
-                                    {{-- =========================
-                                         INACTIVE SUPPLIER
-                                         SHOW ACTIVATE
-                                    ========================== --}}
                                     @else
 
-                                        <form
-                                            action="{{ route('suppliers.activate', $supplier) }}"
-                                            method="POST"
-                                            style="display: inline;"
-                                        >
-
+                                        <form action="{{ route('suppliers.activate', $supplier) }}" method="POST">
                                             @csrf
                                             @method('PATCH')
 
-                                            <button
-                                                type="submit"
-                                                class="btn"
-                                                style="
-                                                    background: #16a34a;
-                                                    color: #ffffff;
-                                                    border: 1px solid #16a34a;
-                                                    padding: 7px 12px;
-                                                    border-radius: 6px;
-                                                    cursor: pointer;
-                                                    font-weight: 500;
-                                                "
-                                            >
+                                            <button type="submit" class="btn btn-success">
                                                 Activate
                                             </button>
-
                                         </form>
 
                                     @endif
@@ -578,194 +158,107 @@
                                 @endif
 
                             </div>
-
                         </td>
-
                     </tr>
-
-
                 @empty
-
-                    {{-- =========================
-                         NO RESULTS
-                    ========================== --}}
                     <tr>
-
-                        <td
-                            colspan="7"
-                            style="
-                                padding: 40px 20px;
-                                text-align: center;
-                                color: #64748b;
-                            "
-                        >
-
-                            @if ($search !== '')
-
-                                <div
-                                    style="
-                                        font-weight: 600;
-                                        color: #334155;
-                                        margin-bottom: 6px;
-                                    "
-                                >
-                                    No suppliers found.
-                                </div>
-
-                                <div style="font-size: 13px;">
-                                    Try a different search term.
-                                </div>
-
-                            @else
-
-                                <div
-                                    style="
-                                        font-weight: 600;
-                                        color: #334155;
-                                        margin-bottom: 6px;
-                                    "
-                                >
-                                    No suppliers yet.
-                                </div>
-
-                                <div style="font-size: 13px;">
-                                    Add your first supplier to start creating purchase orders.
-                                </div>
-
-                            @endif
-
+                        <td colspan="7">
+                            <div class="empty-state" style="box-shadow: none; border: none;">
+                                @if ($search !== '')
+                                    <p><strong>No suppliers found.</strong><br>Try a different search term.</p>
+                                @else
+                                    <p><strong>No suppliers yet.</strong><br>Add your first supplier to start creating purchase orders.</p>
+                                @endif
+                            </div>
                         </td>
-
                     </tr>
-
                 @endforelse
-
             </tbody>
-
         </table>
-
     </div>
 
 
-    {{-- =========================
-         PAGINATION
-    ========================== --}}
+    {{-- PAGINATION --}}
     @if ($suppliers->hasPages())
-
-        <div
-            style="
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 6px;
-                flex-wrap: wrap;
-                margin-top: 20px;
-            "
-        >
-
-            {{-- PREVIOUS --}}
-            @if ($suppliers->onFirstPage())
-
-                <span
-                    class="btn btn-secondary"
-                    style="
-                        opacity: 0.5;
-                        cursor: not-allowed;
-                    "
-                >
-                    ← Previous
-                </span>
-
-            @else
-
-                <a
-                    href="{{ $suppliers->previousPageUrl() }}"
-                    class="btn btn-secondary"
-                    style="text-decoration: none;"
-                >
-                    ← Previous
-                </a>
-
-            @endif
-
-
-            {{-- PAGE NUMBERS --}}
-            @foreach (
-                $suppliers->getUrlRange(
-                    max(1, $suppliers->currentPage() - 2),
-                    min($suppliers->lastPage(), $suppliers->currentPage() + 2)
-                )
-                as $page => $url
-            )
-
-                @if ($page == $suppliers->currentPage())
-
-                    <span
-                        style="
-                            min-width: 36px;
-                            padding: 7px 10px;
-                            border: 1px solid #2563eb;
-                            border-radius: 6px;
-                            background: #2563eb;
-                            color: #ffffff;
-                            text-align: center;
-                        "
-                    >
-                        {{ $page }}
-                    </span>
-
-                @else
-
-                    <a
-                        href="{{ $url }}"
-                        style="
-                            min-width: 36px;
-                            padding: 7px 10px;
-                            border: 1px solid #cbd5e1;
-                            border-radius: 6px;
-                            background: #ffffff;
-                            color: #334155;
-                            text-align: center;
-                            text-decoration: none;
-                        "
-                    >
-                        {{ $page }}
-                    </a>
-
-                @endif
-
-            @endforeach
-
-
-            {{-- NEXT --}}
-            @if ($suppliers->hasMorePages())
-
-                <a
-                    href="{{ $suppliers->nextPageUrl() }}"
-                    class="btn btn-secondary"
-                    style="text-decoration: none;"
-                >
-                    Next →
-                </a>
-
-            @else
-
-                <span
-                    class="btn btn-secondary"
-                    style="
-                        opacity: 0.5;
-                        cursor: not-allowed;
-                    "
-                >
-                    Next →
-                </span>
-
-            @endif
-
+        <div style="margin-top: 15px;">
+            {{ $suppliers->onEachSide(1)->links() }}
         </div>
-
     @endif
 
 </div>
+
+
+<style>
+
+    .supplier-search-form {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+    }
+
+    .results-info {
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #475569;
+    }
+
+    .entity-cell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .entity-avatar {
+        flex-shrink: 0;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #7c3aed, #a78bfa);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .entity-name {
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .entity-subtext {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 1px;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-active {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status-inactive {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+</style>
 
 @endsection

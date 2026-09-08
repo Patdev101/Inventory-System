@@ -10,20 +10,47 @@ use Illuminate\View\View;
 
 class StockAlertController extends Controller
 {
-    public function index(StockAlertService $service): View
+    public function index(Request $request, StockAlertService $service): View
     {
         $service->synchronize();
+
+        $status = $request->query('status', 'active');
+        $severity = $request->query('severity');
 
         $alerts = StockAlert::with([
             'inventory.product',
             'inventory.location',
             'acknowledgedBy',
         ])
+            ->when($status === 'active', function ($query) {
+                $query->whereIn('status', ['open', 'acknowledged']);
+            })
+            ->when(
+                in_array($status, ['open', 'acknowledged', 'resolved'], true),
+                function ($query) use ($status) {
+                    $query->where('status', $status);
+                }
+            )
+            ->when($severity, function ($query) use ($severity) {
+                $query->where('severity', $severity);
+            })
             ->latest('id')
             ->paginate(20)
             ->withQueryString();
 
-        return view('stock-alerts.index', compact('alerts'));
+        $counts = [
+            'open' => StockAlert::where('status', 'open')->count(),
+            'acknowledged' => StockAlert::where('status', 'acknowledged')->count(),
+            'resolved' => StockAlert::where('status', 'resolved')->count(),
+            'out_of_stock' => StockAlert::active()->where('severity', 'out_of_stock')->count(),
+            'critical' => StockAlert::active()->where('severity', 'critical')->count(),
+            'low' => StockAlert::active()->where('severity', 'low')->count(),
+        ];
+
+        return view(
+            'stock-alerts.index',
+            compact('alerts', 'counts', 'status', 'severity')
+        );
     }
 
     public function acknowledge(

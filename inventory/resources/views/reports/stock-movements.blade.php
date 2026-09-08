@@ -58,7 +58,7 @@
             <tbody>
                 @foreach ($transactions as $transaction)
                     <tr>
-                        <td>{{ $transaction->created_at?->format('Y-m-d H:i') }}</td>
+                        <td>{{ format_datetime($transaction->created_at) }}</td>
                         <td>
                             <span class="stock-status {{ $transaction->isIn() ? 'stock-ok' : 'stock-critical' }}">
                                 {{ $transaction->getDirectionLabelAttribute() }}
@@ -66,8 +66,8 @@
                         </td>
                         <td>{{ $transaction->product?->name ?? 'Deleted product' }}</td>
                         <td>{{ $transaction->location?->name ?? 'Deleted location' }}</td>
-                        <td>{{ number_format((float) $transaction->quantity, 4) }} {{ $transaction->productUnit?->unitOfMeasure?->code }}</td>
-                        <td>{{ number_format((float) $transaction->base_quantity, 4) }}</td>
+                        <td>{{ format_qty((float) $transaction->quantity) }} {{ $transaction->productUnit?->unitOfMeasure?->code }}</td>
+                        <td>{{ format_qty((float) $transaction->base_quantity) }}</td>
                         <td>{{ $transaction->reference ?: '-' }}</td>
                     </tr>
                 @endforeach

@@ -6,8 +6,10 @@ use App\Services\AccountAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
+use Throwable;
 
 class AccountController extends Controller
 {
@@ -77,5 +79,43 @@ class AccountController extends Controller
         return redirect()
             ->route('account.edit')
             ->with('success', 'Your password has been changed.');
+    }
+
+    /**
+     * Send a one-off test email to the current user's own address, to
+     * verify the configured mail driver (config/mail.php, MAIL_* in
+     * .env) is actually able to deliver mail. Admin only, since it
+     * exercises live mail configuration rather than app data.
+     */
+    public function sendTestEmail(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        $user = $request->user();
+
+        try {
+            Mail::raw(
+                'This is a test email from ' . config('app.name') . '. '
+                . 'If you received this, your mail configuration is working correctly.',
+                function ($message) use ($user) {
+                    $message->to($user->email)
+                        ->subject('Test email — ' . config('app.name'));
+                }
+            );
+        } catch (Throwable $e) {
+            return back()->with(
+                'error',
+                'Could not send test email: ' . $e->getMessage()
+            );
+        }
+
+        $driver = config('mail.default');
+
+        return back()->with(
+            'success',
+            $driver === 'log'
+                ? 'Test email "sent" — since MAIL_MAILER is set to "log", check storage/logs/laravel.log instead of your inbox.'
+                : 'Test email sent to ' . $user->email . '. Check your inbox (and spam folder).'
+        );
     }
 }

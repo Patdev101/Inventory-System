@@ -21,6 +21,37 @@
     <form action="{{ route('inventories.store') }}" method="POST">
         @csrf
 
+        {{-- Company --}}
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="company_id">
+                <strong>Company</strong>
+            </label>
+
+            <select
+                id="company_id"
+                name="company_id_filter"
+                required
+                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
+            >
+                <option value="">-- Select Company --</option>
+
+                @foreach ($companies as $company)
+                    <option
+                        value="{{ $company->id }}"
+                        {{ old('company_id_filter') == $company->id ? 'selected' : '' }}
+                    >
+                        {{ $company->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <small style="color: #6b7280;">
+                Not all companies carry the same products or locations —
+                choose a company first to narrow the choices below.
+            </small>
+        </div>
+
+
         {{-- Product --}}
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="product_id">
@@ -31,18 +62,10 @@
                 id="product_id"
                 name="product_id"
                 required
+                disabled
                 style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
             >
-                <option value="">-- Select Product --</option>
-
-                @foreach ($products as $product)
-                    <option
-                        value="{{ $product->id }}"
-                        {{ old('product_id') == $product->id ? 'selected' : '' }}
-                    >
-                        {{ $product->name }} ({{ $product->code }})
-                    </option>
-                @endforeach
+                <option value="">-- Select Company First --</option>
             </select>
         </div>
 
@@ -57,18 +80,10 @@
                 id="location_id"
                 name="location_id"
                 required
+                disabled
                 style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
             >
-                <option value="">-- Select Location --</option>
-
-                @foreach ($locations as $location)
-                    <option
-                        value="{{ $location->id }}"
-                        {{ old('location_id') == $location->id ? 'selected' : '' }}
-                    >
-                        {{ $location->name }} ({{ $location->code }})
-                    </option>
-                @endforeach
+                <option value="">-- Select Company First --</option>
             </select>
         </div>
 
@@ -165,9 +180,23 @@
 
 <script>
 
-    const products = @json($products);
+    function formatQty(value) {
+        const num = Number(value);
+        if (!isFinite(num)) {
+            return String(value);
+        }
+        return parseFloat(num.toFixed(2)).toString();
+    }
 
+    const products = @json($products);
+    const locations = @json($locations);
+
+    const oldProductId = @json(old('product_id'));
+    const oldLocationId = @json(old('location_id'));
+
+    const companySelect = document.getElementById('company_id');
     const productSelect = document.getElementById('product_id');
+    const locationSelect = document.getElementById('location_id');
     const unitSelect = document.getElementById('product_unit_id');
     const quantityInput = document.getElementById('quantity');
 
@@ -218,7 +247,7 @@
         conversionContainer.style.display = 'block';
 
         conversionInput.value =
-            conversion.toFixed(4);
+            formatQty(conversion);
 
 
         if (!isNaN(quantity) && quantity > 0) {
@@ -229,7 +258,7 @@
             totalContainer.style.display = 'block';
 
             totalInput.value =
-                total.toFixed(4);
+                formatQty(total);
 
         } else {
 
@@ -238,6 +267,117 @@
             totalInput.value = '';
         }
     }
+
+
+    function updateCompanyScopedOptions(preselect) {
+
+        preselect = preselect || {};
+
+        const companyId = companySelect.value;
+
+        productSelect.innerHTML = '';
+        locationSelect.innerHTML = '';
+
+        if (!companyId) {
+
+            productSelect.disabled = true;
+            locationSelect.disabled = true;
+
+            const productPlaceholder = document.createElement('option');
+            productPlaceholder.value = '';
+            productPlaceholder.textContent = '-- Select Company First --';
+            productSelect.appendChild(productPlaceholder);
+
+            const locationPlaceholder = document.createElement('option');
+            locationPlaceholder.value = '';
+            locationPlaceholder.textContent = '-- Select Company First --';
+            locationSelect.appendChild(locationPlaceholder);
+
+            updateUnits();
+
+            return;
+        }
+
+        productSelect.disabled = false;
+        locationSelect.disabled = false;
+
+        const productPlaceholder = document.createElement('option');
+        productPlaceholder.value = '';
+        productPlaceholder.textContent = '-- Select Product --';
+        productSelect.appendChild(productPlaceholder);
+
+        products
+            .filter(function (product) {
+                return String(product.company_id) === String(companyId);
+            })
+            .forEach(function (product) {
+
+                const option = document.createElement('option');
+                option.value = product.id;
+
+                const identifier = product.item_code || product.sku;
+
+                option.textContent =
+                    product.name +
+                    (identifier ? ' (' + identifier + ')' : '');
+
+                if (
+                    preselect.productId &&
+                    String(preselect.productId) === String(product.id)
+                ) {
+                    option.selected = true;
+                }
+
+                productSelect.appendChild(option);
+            });
+
+        if (
+            productSelect.querySelectorAll('option[value]:not([value=""])').length === 0
+        ) {
+            productPlaceholder.textContent = '-- No Products for This Company --';
+        }
+
+        const locationPlaceholder = document.createElement('option');
+        locationPlaceholder.value = '';
+        locationPlaceholder.textContent = '-- Select Location --';
+        locationSelect.appendChild(locationPlaceholder);
+
+        locations
+            .filter(function (location) {
+                return String(location.company_id) === String(companyId);
+            })
+            .forEach(function (location) {
+
+                const option = document.createElement('option');
+                option.value = location.id;
+
+                option.textContent =
+                    location.name +
+                    (location.code ? ' (' + location.code + ')' : '');
+
+                if (
+                    preselect.locationId &&
+                    String(preselect.locationId) === String(location.id)
+                ) {
+                    option.selected = true;
+                }
+
+                locationSelect.appendChild(option);
+            });
+
+        if (
+            locationSelect.querySelectorAll('option[value]:not([value=""])').length === 0
+        ) {
+            locationPlaceholder.textContent = '-- No Locations for This Company --';
+        }
+
+        updateUnits();
+    }
+
+
+    companySelect.addEventListener('change', function () {
+        updateCompanyScopedOptions();
+    });
 
 
     function updateUnits() {
@@ -337,7 +477,7 @@
                 ' (' +
                 productUnit.unit_of_measure.code +
                 ') - 1 unit = ' +
-                productUnit.conversion_factor;
+                formatQty(productUnit.conversion_factor);
 
 
             unitSelect.appendChild(option);
@@ -365,7 +505,10 @@
     );
 
 
-    updateUnits();
+    updateCompanyScopedOptions({
+        productId: oldProductId,
+        locationId: oldLocationId,
+    });
 
 </script>
 

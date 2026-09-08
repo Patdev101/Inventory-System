@@ -24,20 +24,6 @@
 </div>
 
 
-@if (session('success'))
-    <div class="alert alert-success">
-        {{ session('success') }}
-    </div>
-@endif
-
-
-@if (session('error'))
-    <div class="alert alert-error">
-        {{ session('error') }}
-    </div>
-@endif
-
-
 @if ($products->count())
 
     <div class="table-wrapper">
@@ -46,11 +32,13 @@
 
             <thead>
                 <tr>
+                    <th>Image</th>
                     <th>ID</th>
                     <th>Category</th>
                     <th>Company</th>
                     <th>Name</th>
                     <th>SKU</th>
+                    <th>Item Code</th>
                     <th>Unit</th>
                     <th>Conversion</th>
                     <th>Reorder Point</th>
@@ -70,6 +58,18 @@
                     @endphp
 
                     <tr>
+
+                        <td>
+                            @if ($product->image_url)
+                                <img
+                                    src="{{ $product->image_url }}"
+                                    alt="{{ $product->name }}"
+                                    style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;"
+                                >
+                            @else
+                                <span style="color: #94a3b8;">—</span>
+                            @endif
+                        </td>
 
                         <td>
                             {{ $product->id }}
@@ -94,6 +94,10 @@
                         </td>
 
                         <td>
+                            {{ $product->item_code ?? '-' }}
+                        </td>
+
+                        <td>
                             @if ($defaultUnit && $defaultUnit->unitOfMeasure)
 
                                 {{ $defaultUnit->unitOfMeasure->name }}
@@ -108,11 +112,11 @@
                         </td>
 
                         <td>
-                            {{ $defaultUnit ? $defaultUnit->conversion_factor : '-' }}
+                            {{ $defaultUnit ? format_qty($defaultUnit->conversion_factor) : '-' }}
                         </td>
 
                         <td>
-                            {{ number_format((float) $product->reorder_point, 4) }}
+                            {{ format_qty((float) $product->reorder_point) }}
                         </td>
 
                         <td>
