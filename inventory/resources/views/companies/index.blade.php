@@ -13,9 +13,15 @@
     </div>
 
     @if (auth()->user()->isAdmin())
-        <a href="{{ route('companies.create') }}" class="btn btn-primary">
-            + Add Company
-        </a>
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ route('companies.trashed') }}" class="btn btn-secondary">
+                Recently Deleted
+            </a>
+
+            <a href="{{ route('companies.create') }}" class="btn btn-primary">
+                + Add Company
+            </a>
+        </div>
     @endif
 </div>
 
@@ -68,7 +74,8 @@
                                     <form
                                         action="{{ route('companies.destroy', $company) }}"
                                         method="POST"
-                                        onsubmit="return confirm('Delete this company?');"
+                                        data-confirm="Delete this company? This can be undone later by an admin."
+                                        data-confirm-title="Delete company"
                                     >
                                         @csrf
                                         @method('DELETE')

@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Mail\PurchaseOrderMail;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderEmail;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseOrderReceipt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -124,33 +128,37 @@ class PurchaseOrderService
         PurchaseOrder $purchaseOrder,
         int $userId
     ): PurchaseOrder {
-        if (!$purchaseOrder->isEditable()) {
-            throw ValidationException::withMessages([
-                'status' =>
-                    'Only draft purchase orders can be submitted for approval.',
-            ]);
-        }
-
-        if ($purchaseOrder->items()->count() === 0) {
-            throw ValidationException::withMessages([
-                'items' =>
-                    'Cannot submit a purchase order with no items.',
-            ]);
-        }
-
-        $oldStatus = $purchaseOrder->status;
-
         DB::transaction(function () use (
             $purchaseOrder,
-            $userId,
-            $oldStatus
+            $userId
         ) {
-            $purchaseOrder->update([
+            $locked = PurchaseOrder::query()
+                ->whereKey($purchaseOrder->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (!$locked->isEditable()) {
+                throw ValidationException::withMessages([
+                    'status' =>
+                        'Only draft purchase orders can be submitted for approval.',
+                ]);
+            }
+
+            if ($locked->items()->count() === 0) {
+                throw ValidationException::withMessages([
+                    'items' =>
+                        'Cannot submit a purchase order with no items.',
+                ]);
+            }
+
+            $oldStatus = $locked->status;
+
+            $locked->update([
                 'status' => PurchaseOrder::STATUS_PENDING_APPROVAL,
             ]);
 
             $this->logActivity(
-                purchaseOrder: $purchaseOrder,
+                purchaseOrder: $locked,
                 userId: $userId,
                 action: 'submitted_for_approval',
                 description: 'Purchase order submitted for approval.',
@@ -174,19 +182,24 @@ class PurchaseOrderService
         int $approverUserId,
         ?string $notes = null
     ): PurchaseOrder {
-        if (!$purchaseOrder->isPendingApproval()) {
-            throw ValidationException::withMessages([
-                'status' =>
-                    'Only purchase orders pending approval can be approved.',
-            ]);
-        }
-
         DB::transaction(function () use (
             $purchaseOrder,
             $approverUserId,
             $notes
         ) {
-            $purchaseOrder->update([
+            $locked = PurchaseOrder::query()
+                ->whereKey($purchaseOrder->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (!$locked->isPendingApproval()) {
+                throw ValidationException::withMessages([
+                    'status' =>
+                        'Only purchase orders pending approval can be approved.',
+                ]);
+            }
+
+            $locked->update([
                 'status' => PurchaseOrder::STATUS_APPROVED,
                 'approved_by' => $approverUserId,
                 'approved_at' => now(),
@@ -195,7 +208,7 @@ class PurchaseOrderService
             ]);
 
             $this->logActivity(
-                purchaseOrder: $purchaseOrder,
+                purchaseOrder: $locked,
                 userId: $approverUserId,
                 action: 'approved',
                 description: 'Purchase order approved.',
@@ -222,13 +235,6 @@ class PurchaseOrderService
     ): PurchaseOrder {
         $reason = trim($reason);
 
-        if (!$purchaseOrder->isPendingApproval()) {
-            throw ValidationException::withMessages([
-                'status' =>
-                    'Only purchase orders pending approval can be rejected.',
-            ]);
-        }
-
         if ($reason === '') {
             throw ValidationException::withMessages([
                 'rejection_reason' =>
@@ -241,7 +247,19 @@ class PurchaseOrderService
             $approverUserId,
             $reason
         ) {
-            $purchaseOrder->update([
+            $locked = PurchaseOrder::query()
+                ->whereKey($purchaseOrder->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (!$locked->isPendingApproval()) {
+                throw ValidationException::withMessages([
+                    'status' =>
+                        'Only purchase orders pending approval can be rejected.',
+                ]);
+            }
+
+            $locked->update([
                 'status' => PurchaseOrder::STATUS_REJECTED,
                 'approved_by' => $approverUserId,
                 'approved_at' => now(),
@@ -249,7 +267,7 @@ class PurchaseOrderService
             ]);
 
             $this->logActivity(
-                purchaseOrder: $purchaseOrder,
+                purchaseOrder: $locked,
                 userId: $approverUserId,
                 action: 'rejected',
                 description: 'Purchase order rejected.',
@@ -275,23 +293,28 @@ class PurchaseOrderService
         PurchaseOrder $purchaseOrder,
         int $userId
     ): PurchaseOrder {
-        if (!$purchaseOrder->isApproved()) {
-            throw ValidationException::withMessages([
-                'status' =>
-                    'Only approved purchase orders can be marked as ordered.',
-            ]);
-        }
-
         DB::transaction(function () use (
             $purchaseOrder,
             $userId
         ) {
-            $purchaseOrder->update([
+            $locked = PurchaseOrder::query()
+                ->whereKey($purchaseOrder->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (!$locked->isApproved()) {
+                throw ValidationException::withMessages([
+                    'status' =>
+                        'Only approved purchase orders can be marked as ordered.',
+                ]);
+            }
+
+            $locked->update([
                 'status' => PurchaseOrder::STATUS_ORDERED,
             ]);
 
             $this->logActivity(
-                purchaseOrder: $purchaseOrder,
+                purchaseOrder: $locked,
                 userId: $userId,
                 action: 'ordered',
                 description: 'Purchase order marked as ordered.',
@@ -302,7 +325,91 @@ class PurchaseOrderService
             );
         });
 
+        // Sent after the transaction commits — a mail failure should
+        // never roll back the status change, and the sync mailer
+        // shouldn't run inside an open DB transaction.
+        $this->sendOrderRequestEmailToSupplier($purchaseOrder, $userId);
+
         return $purchaseOrder->fresh();
+    }
+
+    /**
+     * Automatically email the supplier a purchase order request the
+     * moment it's marked as ordered — the same PDF/log/activity trail as
+     * the manual "Send Email" action, just fired without a user having
+     * to click it. If the supplier has no email on file, this is skipped
+     * (logged, not thrown) — marking a PO as ordered must never fail
+     * just because a supplier's email is missing.
+     */
+    private function sendOrderRequestEmailToSupplier(
+        PurchaseOrder $purchaseOrder,
+        int $userId
+    ): void {
+        $purchaseOrder->load([
+            'supplier',
+            'location.company',
+            'createdBy',
+            'approvedBy',
+            'items.product',
+            'items.productUnit.unitOfMeasure',
+        ]);
+
+        $toEmail = $purchaseOrder->supplier?->email;
+
+        if (empty($toEmail)) {
+            Log::info(
+                'Purchase order ' . $purchaseOrder->po_number
+                . ' marked as ordered but its supplier has no email on file — '
+                . 'automatic order-request email skipped.'
+            );
+
+            return;
+        }
+
+        $subject = 'Purchase Order from '
+            . ($purchaseOrder->location?->company?->name ?? config('app.name'))
+            . ' (' . $purchaseOrder->po_number . ')';
+
+        $body = "Dear " . ($purchaseOrder->supplier?->name ?? 'Supplier') . ",\n\n"
+            . "Please find attached purchase order {$purchaseOrder->po_number}. "
+            . "Kindly go through it and confirm the order.\n\n"
+            . "We look forward to working with you.\n\nRegards,";
+
+        try {
+            Mail::to($toEmail)->send(new PurchaseOrderMail(
+                purchaseOrder: $purchaseOrder,
+                emailSubject: $subject,
+                messageBody: $body
+            ));
+        } catch (\Throwable $e) {
+            Log::warning(
+                'Failed to auto-send order-request email for purchase order '
+                . $purchaseOrder->po_number . ': ' . $e->getMessage()
+            );
+
+            return;
+        }
+
+        PurchaseOrderEmail::create([
+            'purchase_order_id' => $purchaseOrder->id,
+            'sent_by' => $userId,
+            'to_email' => $toEmail,
+            'subject' => $subject,
+            'body' => $body,
+            'sent_at' => now(),
+        ]);
+
+        $this->logActivity(
+            purchaseOrder: $purchaseOrder,
+            userId: $userId,
+            action: 'emailed_to_supplier',
+            description: 'Order request automatically emailed to ' . $toEmail . ' when marked as ordered.',
+            metadata: [
+                'to_email' => $toEmail,
+                'subject' => $subject,
+                'automatic' => true,
+            ]
+        );
     }
 
     /**

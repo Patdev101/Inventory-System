@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Models\Inventory;
 use App\Models\Location;
+use App\Models\PurchaseOrder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -19,6 +21,32 @@ class LocationController extends Controller
             ->paginate(10);
 
         return view('locations.index', compact('locations'));
+    }
+
+    /**
+     * Show soft-deleted locations, admin-only, so they can be restored.
+     */
+    public function trashed()
+    {
+        $locations = Location::onlyTrashed()
+            ->with('company')
+            ->latest('deleted_at')
+            ->paginate(10);
+
+        return view('locations.trashed', compact('locations'));
+    }
+
+    /**
+     * Restore a soft-deleted location.
+     */
+    public function restore(int $location)
+    {
+        $location = Location::onlyTrashed()->findOrFail($location);
+        $location->restore();
+
+        return redirect()
+            ->route('locations.trashed')
+            ->with('success', 'Location "' . $location->name . '" restored.');
     }
 
     /**
@@ -222,13 +250,25 @@ class LocationController extends Controller
      */
     public function destroy(Location $location)
     {
+        $hasInventory = Inventory::where('location_id', $location->id)->exists();
+        $hasPurchaseOrders = PurchaseOrder::where('location_id', $location->id)->exists();
+
+        if ($hasInventory || $hasPurchaseOrders) {
+            return redirect()
+                ->route('locations.index')
+                ->with(
+                    'error',
+                    'This location cannot be deleted because it has inventory or purchase order history.'
+                );
+        }
+
         $location->delete();
 
         return redirect()
             ->route('locations.index')
             ->with(
                 'success',
-                'Location deleted successfully.'
+                'Location deleted. It can be restored by an admin if needed.'
             );
     }
 }

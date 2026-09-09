@@ -11,9 +11,15 @@
     </div>
 
     @if (auth()->user()->isAdmin())
-        <a href="{{ route('product-categories.create') }}" class="btn btn-primary">
-            + Add Category
-        </a>
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ route('product-categories.trashed') }}" class="btn btn-secondary">
+                Recently Deleted
+            </a>
+
+            <a href="{{ route('product-categories.create') }}" class="btn btn-primary">
+                + Add Category
+            </a>
+        </div>
     @endif
 </div>
 
@@ -43,7 +49,7 @@
                                 <a href="{{ route('product-categories.show', $category) }}" class="btn btn-secondary">View</a>
                                 @if (auth()->user()->isAdmin())
                                     <a href="{{ route('product-categories.edit', $category) }}" class="btn btn-primary">Edit</a>
-                                    <form action="{{ route('product-categories.destroy', $category) }}" method="POST" onsubmit="return confirm('Delete this product category?');">
+                                    <form action="{{ route('product-categories.destroy', $category) }}" method="POST" data-confirm="Delete this product category? This can be undone later by an admin." data-confirm-title="Delete category">
                                     @csrf
                                     @method('DELETE')
                                         <button type="submit" class="btn btn-danger">Delete</button>

@@ -69,6 +69,7 @@
 @else
     <div class="empty-state">
         <p>No transfers match these filters.</p>
+        <a href="{{ route('reports.transfers') }}" class="btn btn-secondary">Clear Filters</a>
     </div>
 @endif
 

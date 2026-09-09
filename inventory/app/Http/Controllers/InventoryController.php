@@ -22,6 +22,27 @@ class InventoryController extends Controller
     ) {
     }
 
+    /**
+     * Guard against adding stock for a product/location combination
+     * that belong to different companies. The Add Inventory form
+     * filters both dropdowns to the same company client-side, but that
+     * is a UI convenience only — this is the actual enforcement.
+     */
+    private function assertProductAndLocationShareCompany(
+        int $productId,
+        int $locationId
+    ): void {
+        $product = Product::findOrFail($productId);
+        $location = Location::findOrFail($locationId);
+
+        if ((int) $product->company_id !== (int) $location->company_id) {
+            throw ValidationException::withMessages([
+                'location_id' =>
+                    'This product and location belong to different companies.',
+            ]);
+        }
+    }
+
 /**
 * Display inventory list.
 */
@@ -116,6 +137,11 @@ public function store(Request $request)
             'gt:0',
         ],
     ]);
+
+    $this->assertProductAndLocationShareCompany(
+        $validated['product_id'],
+        $validated['location_id']
+    );
 
     if ($request->user()?->hasRole(User::ROLE_STAFF)) {
         $stockMovementRequest = StockMovementRequest::create([

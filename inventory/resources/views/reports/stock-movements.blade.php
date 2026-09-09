@@ -81,6 +81,7 @@
 @else
     <div class="empty-state">
         <p>No stock movements match these filters.</p>
+        <a href="{{ route('reports.stock-movements') }}" class="btn btn-secondary">Clear Filters</a>
     </div>
 @endif
 

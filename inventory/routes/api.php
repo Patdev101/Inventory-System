@@ -7,7 +7,13 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\InventoryApiController;
 
 
-Route::middleware('inventory.api-token')->group(function () {
+Route::middleware(['inventory.api-token', 'throttle:120,1'])->group(function () {
+
+    Route::get('/config', function () {
+        return [
+            'vat_rate' => (float) config('pricing.vat_rate'),
+        ];
+    });
 
     Route::get('/products', function (Request $request) {
         $search = trim((string) $request->query('search', ''));

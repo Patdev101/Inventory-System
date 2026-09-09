@@ -142,9 +142,9 @@ class PurchaseOrderReceivingTest extends TestCase
 
         // draft -> pending_approval -> approved -> ordered, mirroring the
         // real workflow (receiving is only open once ordered).
-        app(\App\Services\PurchaseOrderService::class)->submitForApproval($purchaseOrder);
+        app(\App\Services\PurchaseOrderService::class)->submitForApproval($purchaseOrder, $admin->id);
         app(\App\Services\PurchaseOrderService::class)->approve($purchaseOrder->fresh(), $admin->id);
-        app(\App\Services\PurchaseOrderService::class)->markOrdered($purchaseOrder->fresh());
+        app(\App\Services\PurchaseOrderService::class)->markOrdered($purchaseOrder->fresh(), $admin->id);
 
         // Partial receive: 40 of 100.
         $this->actingAs($admin)->patch(route('purchase-orders.receive', $purchaseOrder), [
@@ -191,5 +191,48 @@ class PurchaseOrderReceivingTest extends TestCase
             'location_id' => $location->id,
             'base_quantity' => 100,
         ]);
+    }
+
+    public function test_purchase_order_pdf_renders_successfully(): void
+    {
+        $admin = $this->makeUser(User::ROLE_ADMIN);
+
+        $company = $this->makeCompany();
+        $location = $this->makeLocation($company);
+        $category = $this->makeCategory();
+        $unit = $this->makeUnit();
+        $product = $this->makeProduct($company, $category, $unit);
+        $this->makeProductUnit($product, $unit);
+
+        $supplier = \App\Models\Supplier::create([
+            'company_id' => $company->id,
+            'name' => 'Test Supplier',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)->post(route('purchase-orders.store'), [
+            'supplier_id' => $supplier->id,
+            'location_id' => $location->id,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'product_unit_id' => $product->productUnits()->first()->id,
+                    'quantity_ordered' => 10,
+                    'unit_price' => 5,
+                ],
+            ],
+        ]);
+
+        $purchaseOrder = \App\Models\PurchaseOrder::query()->latest('id')->firstOrFail();
+
+        $response = $this->actingAs($admin)->get(route('purchase-orders.pdf', $purchaseOrder));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+
+        // A real PDF binary starts with this magic header — confirms
+        // dompdf actually produced a PDF, not an error page mislabeled
+        // with a PDF content-type.
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
     }
 }

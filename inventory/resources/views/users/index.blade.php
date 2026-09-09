@@ -50,7 +50,8 @@
                                     @if ($user->is_active)
                                         <form action="{{ route('users.deactivate', $user) }}"
                                               method="POST"
-                                              onsubmit="return confirm('Deactivate this account?');">
+                                              data-confirm="Deactivate this account? They won't be able to log in until reactivated."
+                                              data-confirm-title="Deactivate account">
                                             @csrf
                                             @method('PATCH')
                                             <button type="submit" class="btn btn-danger">

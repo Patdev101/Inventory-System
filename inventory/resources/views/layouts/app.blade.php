@@ -324,6 +324,169 @@
             margin-top: 5px;
         }
 
+        /* Toast notifications */
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+        }
+
+        .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 9px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, .15);
+            font-size: 13.5px;
+            line-height: 1.4;
+            animation: toast-in .25s ease;
+        }
+
+        .toast.toast-hiding {
+            animation: toast-out .2s ease forwards;
+        }
+
+        .toast-success {
+            background: #16a34a;
+            color: white;
+        }
+
+        .toast-error {
+            background: #dc2626;
+            color: white;
+        }
+
+        .toast-icon {
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .toast-close {
+            margin-left: auto;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            opacity: .75;
+            cursor: pointer;
+            font-size: 15px;
+            line-height: 1;
+            padding: 0 0 0 8px;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(24px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(24px); }
+        }
+
+        /* Button loading state */
+
+        .btn.is-loading {
+            position: relative;
+            color: transparent !important;
+            pointer-events: none;
+        }
+
+        .btn.is-loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 15px;
+            height: 15px;
+            margin: -7.5px 0 0 -7.5px;
+            border: 2px solid rgba(255, 255, 255, .4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: btn-spin .6s linear infinite;
+        }
+
+        .btn-secondary.is-loading::after,
+        .btn-danger.is-loading::after {
+            border: 2px solid rgba(15, 23, 42, .15);
+            border-top-color: #1e293b;
+        }
+
+        @keyframes btn-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Confirm modal */
+
+        .confirm-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .5);
+            z-index: 4000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirm-modal-overlay.is-open {
+            display: flex;
+        }
+
+        .confirm-modal-box {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
+        }
+
+        .confirm-modal-box h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+        }
+
+        .confirm-modal-box p {
+            margin: 0 0 20px;
+            color: #64748b;
+            font-size: 13.5px;
+            line-height: 1.5;
+        }
+
+        .confirm-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* Dev/test mode banner */
+
+        .dev-mode-banner {
+            background: repeating-linear-gradient(
+                135deg,
+                #78350f,
+                #78350f 10px,
+                #92400e 10px,
+                #92400e 20px
+            );
+            color: #fef3c7;
+            font-size: 12.5px;
+            font-weight: 700;
+            text-align: center;
+            padding: 7px 12px;
+            letter-spacing: .02em;
+        }
+
         /* Links */
 
         a {
@@ -408,6 +571,21 @@
                 padding: 10px;
             }
 
+            /*
+             * Safety net: makes every table scroll horizontally on a
+             * narrow screen even if a page's own markup forgot to wrap
+             * it in .table-wrapper (which already handles this via
+             * overflow-x on its container). Without this, a wide table
+             * on a phone either overflows the page or gets squashed
+             * illegibly.
+             */
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+                -webkit-overflow-scrolling: touch;
+            }
+
         }
 
     </style>
@@ -417,6 +595,15 @@
 
 <body>
 
+@unless (app()->environment('production'))
+
+    <div class="dev-mode-banner">
+        ⚠ Development / Test Mode — data here is not real. Real deployment has this banner turned off automatically.
+    </div>
+
+@endunless
+
+
 <div class="system-shell">
 
     @include('layouts.sidebar')
@@ -425,29 +612,53 @@
 
         <div class="container">
 
-    @if(session('success'))
-
-        <div class="alert-success">
-            {{ session('success') }}
-        </div>
-
-    @endif
-
-
-    @if(session('error'))
-
-        <div class="alert-error">
-            {{ session('error') }}
-        </div>
-
-    @endif
-
-
             @yield('content')
 
         </div>
 
     </main>
+
+</div>
+
+
+<div class="toast-container" id="toast-container">
+
+    @if(session('success'))
+        <div class="toast toast-success" data-toast data-toast-timeout="4000">
+            <span class="toast-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+            </span>
+            <span>{{ session('success') }}</span>
+            <button type="button" class="toast-close" data-toast-close aria-label="Dismiss">&times;</button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="toast toast-error" data-toast data-toast-timeout="6000">
+            <span class="toast-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>
+            </span>
+            <span>{{ session('error') }}</span>
+            <button type="button" class="toast-close" data-toast-close aria-label="Dismiss">&times;</button>
+        </div>
+    @endif
+
+</div>
+
+
+<div class="confirm-modal-overlay" id="confirm-modal-overlay">
+
+    <div class="confirm-modal-box">
+
+        <h3 id="confirm-modal-title">Are you sure?</h3>
+        <p id="confirm-modal-message">This action cannot be undone.</p>
+
+        <div class="confirm-modal-actions">
+            <button type="button" class="btn btn-secondary" id="confirm-modal-cancel">Cancel</button>
+            <button type="button" class="btn btn-danger" id="confirm-modal-confirm">Confirm</button>
+        </div>
+
+    </div>
 
 </div>
 
@@ -488,6 +699,170 @@
             window.location.reload();
         }, seconds * 1000);
     })();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Toast notifications
+    |--------------------------------------------------------------------------
+    | Auto-dismisses each flash toast after its data-toast-timeout, and
+    | lets the close button dismiss it early. Toasts stack in the
+    | top-right corner instead of pushing page content down.
+    */
+    document.querySelectorAll('[data-toast]').forEach(function (toast) {
+        var timeout = parseInt(toast.getAttribute('data-toast-timeout'), 10) || 4000;
+
+        function dismiss() {
+            toast.classList.add('toast-hiding');
+            setTimeout(function () {
+                toast.remove();
+            }, 200);
+        }
+
+        var timer = setTimeout(dismiss, timeout);
+
+        var closeBtn = toast.querySelector('[data-toast-close]');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                clearTimeout(timer);
+                dismiss();
+            });
+        }
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Confirm modal
+    |--------------------------------------------------------------------------
+    | Replaces the browser's native confirm() popup for destructive
+    | actions. Two ways to opt in:
+    |
+    |   1. <form data-confirm="message" [data-confirm-title="Title"]> —
+    |      intercepted on submit, for forms with a single submit button.
+    |
+    |   2. <button data-confirm="message" [data-confirm-title="Title"]
+    |      type="submit"> — intercepted on click instead, for forms with
+    |      more than one submit button (e.g. "Pass" / "Fail") where only
+    |      one of them needs confirmation.
+    |
+    | Either way, the real submission only happens once the user clicks
+    | Confirm — via requestSubmit()/click(), which (unlike form.submit())
+    | still fires real submit/click events so the double-submit guard
+    | below still applies.
+    */
+    var confirmOverlay = document.getElementById('confirm-modal-overlay');
+    var confirmTitleEl = document.getElementById('confirm-modal-title');
+    var confirmMessageEl = document.getElementById('confirm-modal-message');
+    var confirmConfirmBtn = document.getElementById('confirm-modal-confirm');
+    var confirmCancelBtn = document.getElementById('confirm-modal-cancel');
+    var pendingConfirmTarget = null;
+
+    function closeConfirmModal() {
+        confirmOverlay.classList.remove('is-open');
+        pendingConfirmTarget = null;
+    }
+
+    confirmCancelBtn.addEventListener('click', closeConfirmModal);
+
+    confirmOverlay.addEventListener('click', function (event) {
+        if (event.target === confirmOverlay) {
+            closeConfirmModal();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && confirmOverlay.classList.contains('is-open')) {
+            closeConfirmModal();
+        }
+    });
+
+    confirmConfirmBtn.addEventListener('click', function () {
+        var target = pendingConfirmTarget;
+        confirmOverlay.classList.remove('is-open');
+        pendingConfirmTarget = null;
+
+        if (!target) {
+            return;
+        }
+
+        target.dataset.confirmed = 'true';
+
+        if (target instanceof HTMLFormElement) {
+            target.requestSubmit();
+        } else {
+            target.click();
+        }
+    });
+
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+
+        if (!(form instanceof HTMLFormElement) || !form.dataset.confirm) {
+            return;
+        }
+
+        if (form.dataset.confirmed === 'true') {
+            return;
+        }
+
+        event.preventDefault();
+
+        confirmTitleEl.textContent = form.dataset.confirmTitle || 'Are you sure?';
+        confirmMessageEl.textContent = form.dataset.confirm;
+        pendingConfirmTarget = form;
+        confirmOverlay.classList.add('is-open');
+    }, true);
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-confirm], input[type="submit"][data-confirm]');
+
+        if (!button) {
+            return;
+        }
+
+        if (button.dataset.confirmed === 'true') {
+            delete button.dataset.confirmed;
+            return;
+        }
+
+        event.preventDefault();
+
+        confirmTitleEl.textContent = button.dataset.confirmTitle || 'Are you sure?';
+        confirmMessageEl.textContent = button.dataset.confirm;
+        pendingConfirmTarget = button;
+        confirmOverlay.classList.add('is-open');
+    }, true);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Double-submit guard + loading state
+    |--------------------------------------------------------------------------
+    | Disables a form's submit button the instant it actually submits (so
+    | a double-click can't fire the same request twice) and shows a
+    | spinner in place of its label, so "did that actually work?" never
+    | happens on a slow connection. Checked against event.defaultPrevented
+    | so a page's own client-side validation (which calls
+    | preventDefault() to block a bad submission) is never left with a
+    | permanently-disabled button — this only fires when the form is
+    | genuinely on its way to the server.
+    */
+    document.addEventListener('submit', function (event) {
+        if (event.defaultPrevented) {
+            return;
+        }
+
+        var form = event.target;
+
+        if (!(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (button) {
+            button.disabled = true;
+            button.classList.add('is-loading');
+        });
+    });
 </script>
 
 </body>

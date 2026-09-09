@@ -165,6 +165,8 @@
                                         <form
                                             action="{{ route('products.deactivate', $product) }}"
                                             method="POST"
+                                            data-confirm="Deactivate this product? It won't be sellable in the POS until reactivated."
+                                            data-confirm-title="Deactivate product"
                                         >
                                             @csrf
                                             @method('PATCH')
@@ -172,7 +174,6 @@
                                             <button
                                                 type="submit"
                                                 class="btn btn-warning btn-sm"
-                                                onclick="return confirm('Deactivate this product?')"
                                             >
                                                 Deactivate
                                             </button>
@@ -190,7 +191,6 @@
                                             <button
                                                 type="submit"
                                                 class="btn btn-success btn-sm"
-                                                onclick="return confirm('Activate this product again?')"
                                             >
                                                 Activate
                                             </button>

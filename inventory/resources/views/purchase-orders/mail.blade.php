@@ -61,6 +61,40 @@
 
                             </table>
 
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px; border-collapse:collapse;">
+
+                                <tr>
+                                    <td colspan="4" style="padding:0 0 8px; font-size:11px; color:#64748b; text-transform:uppercase;">
+                                        Items Ordered
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding:8px; border-bottom:2px solid #e2e8f0; font-size:11px; color:#64748b; text-transform:uppercase;">Product</td>
+                                    <td style="padding:8px; border-bottom:2px solid #e2e8f0; font-size:11px; color:#64748b; text-transform:uppercase;">Unit</td>
+                                    <td align="right" style="padding:8px; border-bottom:2px solid #e2e8f0; font-size:11px; color:#64748b; text-transform:uppercase;">Quantity</td>
+                                    <td align="right" style="padding:8px; border-bottom:2px solid #e2e8f0; font-size:11px; color:#64748b; text-transform:uppercase;">Line Total</td>
+                                </tr>
+
+                                @foreach ($purchaseOrder->items as $item)
+                                    <tr>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#1e293b;">
+                                            {{ $item->product?->name ?? 'Product #' . $item->product_id }}
+                                        </td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#475569;">
+                                            {{ $item->productUnit?->unitOfMeasure?->name ?? '—' }}
+                                        </td>
+                                        <td align="right" style="padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#1e293b;">
+                                            {{ format_qty($item->quantity_ordered) }}
+                                        </td>
+                                        <td align="right" style="padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#1e293b;">
+                                            &#8369;{{ number_format((float) $item->subtotal, 2) }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+
+                            </table>
+
                             <p style="margin:22px 0 0; font-size:13px; color:#64748b;">
                                 The full purchase order is attached as a PDF for your records.
                             </p>

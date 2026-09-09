@@ -746,23 +746,13 @@ class ProductController extends Controller
                 );
         }
 
-        $imagePath = $product->image_path;
-
-        DB::transaction(function () use ($product) {
-            $product->productUnits()->delete();
-
-            $product->delete();
-        });
-
-        if ($imagePath) {
-            Storage::disk('public')->delete($imagePath);
-        }
+        $product->delete();
 
         return redirect()
             ->route('products.index')
             ->with(
                 'success',
-                'Product permanently deleted successfully.'
+                'Product deleted. It can be restored by an admin if needed.'
             );
     }
 

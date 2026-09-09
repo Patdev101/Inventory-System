@@ -7,9 +7,15 @@
     <h1>Units of Measure</h1>
 
     @if (auth()->user()->isAdmin())
-        <a href="{{ route('units-of-measure.create') }}" class="btn btn-primary">
-            Add Unit
-        </a>
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ route('units-of-measure.trashed') }}" class="btn btn-secondary">
+                Recently Deleted
+            </a>
+
+            <a href="{{ route('units-of-measure.create') }}" class="btn btn-primary">
+                Add Unit
+            </a>
+        </div>
     @endif
 </div>
 
@@ -54,6 +60,8 @@
                                     <form
                                         action="{{ route('units-of-measure.destroy', ['units_of_measure' => $unit->id]) }}"
                                         method="POST"
+                                        data-confirm="Delete this unit of measure? This can be undone later by an admin."
+                                        data-confirm-title="Delete unit of measure"
                                     >
                                         @csrf
                                         @method('DELETE')
@@ -61,7 +69,6 @@
                                         <button
                                             type="submit"
                                             class="btn btn-danger"
-                                            onclick="return confirm('Delete this unit of measure?')"
                                         >
                                             Delete
                                         </button>

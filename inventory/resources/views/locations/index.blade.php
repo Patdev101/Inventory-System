@@ -13,9 +13,15 @@
     </div>
 
     @if (auth()->user()->isAdmin())
-        <a href="{{ route('locations.create') }}" class="btn btn-primary">
-            + Add Location
-        </a>
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ route('locations.trashed') }}" class="btn btn-secondary">
+                Recently Deleted
+            </a>
+
+            <a href="{{ route('locations.create') }}" class="btn btn-primary">
+                + Add Location
+            </a>
+        </div>
     @endif
 </div>
 
@@ -71,15 +77,16 @@
                                         Edit
                                     </a>
 
-                                    <form action="{{ route('locations.destroy', $location) }}" method="POST">
+                                    <form
+                                        action="{{ route('locations.destroy', $location) }}"
+                                        method="POST"
+                                        data-confirm="Delete this location? This can be undone later by an admin."
+                                        data-confirm-title="Delete location"
+                                    >
                                         @csrf
                                         @method('DELETE')
 
-                                        <button
-                                            type="submit"
-                                            class="btn btn-danger"
-                                            onclick="return confirm('Delete this location?')"
-                                        >
+                                        <button type="submit" class="btn btn-danger">
                                             Delete
                                         </button>
                                     </form>

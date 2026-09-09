@@ -132,7 +132,8 @@
                                         <form
                                             action="{{ route('suppliers.deactivate', $supplier) }}"
                                             method="POST"
-                                            onsubmit="return confirm('Deactivate this supplier?');"
+                                            data-confirm="Deactivate this supplier? They won't be selectable for new purchase orders until reactivated."
+                                            data-confirm-title="Deactivate supplier"
                                         >
                                             @csrf
                                             @method('PATCH')

@@ -5,7 +5,7 @@
 **Database:** SQL Server (production/dev), SQLite in-memory (automated tests)
 **Project path:** `c:\projects\shogun\inventory`
 **Companion project:** `c:\projects\shogun\possystem` (POS) — separate Laravel app, separate database, talks to this app only over the token-authenticated `/api/*` routes below.
-**Documentation date:** 2026-09-08 (verified against live code a second time same day — added the undocumented Reports module and flagged one dead model; see Section 0)
+**Documentation date:** 2026-09-09 (see Section 18 changelog for everything shipped since the 2026-09-08 version below — UX pass, soft-delete/restore, deploy prep, repo cleanup)
 
 ---
 
@@ -497,6 +497,20 @@ Production hardening checklist (permissions, mail, backups, monitoring, secrets)
 ---
 
 ## 18. Changelog
+
+### 2026-09-09 — UX pass, soft-delete/restore, deploy prep, repo cleanup
+
+**Full suite: 136 tests passing** (up from 93).
+
+- **UX pass across the whole app:** loading states + `.is-loading` spinner class on double-submit-guarded forms; toast notifications replacing full-page flash banners; a shared confirm-modal system (`data-confirm`/`data-confirm-title` attributes intercepted globally in `layouts/app.blade.php`) replacing every native `confirm()`/`prompt()` call across `companies`, `locations`, `product_categories`, `units_of_measure`, `suppliers`, `users`, `products`, `stock-movement-requests`, and inventory/transfer show pages; a global mobile table-scroll safety net (`table { display:block; overflow-x:auto; }` under 600px); a dev-mode banner (`@unless (app()->environment('production'))`) that disappears automatically once `APP_ENV=production` — no manual toggle needed at deploy time.
+- **Soft-delete + Recently-Deleted/Restore added to `Location`, `Company`, `ProductCategory`, `UnitOfMeasure`** — each gained `deleted_at` (2 new migrations), a dependency-guarded `destroy()`, and a `trashed()`/`restore()` view+route pair. **`Product` was deliberately excluded** from the Restore UI (though it keeps the `SoftDeletes` trait on the model as a harmless backend safety net) — Products only ever had a Deactivate action, never a real Delete button, so a "Recently Deleted Products" screen would have had nothing to show.
+- **Genuine pre-existing bug found and fixed while building this:** neither `ProductCategoryController` nor `UnitOfMeasureController` had a dependency guard before this change — a category or unit still referenced by products could previously be silently soft-deleted, orphaning those products. Both now block deletion with a clear message if anything still references them.
+- **`PurchaseOrderService`** (`submitForApproval()`/`approve()`/`reject()`/`markOrdered()`) rewritten to `lockForUpdate()` + re-check status inside a `DB::transaction()` before mutating, closing a double-click race window where the same PO could be approved/rejected twice.
+- **Account page redesigned** (hero header + Profile/Security/System sections) with a "Change Name" form added (`AccountController::updateName()`, logged via `AccountAuditLogger::nameChangedBySelf()`), mirroring the same feature added to POS.
+- **Deploy prep:** `.env.production` template (not live, `APP_DEBUG=false`, fresh `APP_KEY`, `TODO:` markers for real secrets), `public/web.config` (IIS rewrite rules), `GET /api/config` route added, `/api/*` group throttled (`throttle:120,1`). `.env.example` fixed (`STOCK_APPROVAL_EMAILS_ENABLED`, `VAT_RATE=12`).
+- **New tests:** `SoftDeleteTest.php` (12), extra double-transition-rejection cases in `PurchaseOrderApprovalTest.php`, a PDF-render test in `PurchaseOrderReceivingTest.php`, 10 new cases in `FormattingHelpersTest.php`.
+- **Repo cleanup (2026-09-09):** deleted the `resources/views/purchase-orders/_backup_2026-09-08/` directory (7 files — a mid-session backup made before the PO index rewrite, superseded and no longer needed) and the stale `DEVELOPMENT_PROGRESS.md` (last touched 2026-09-02, weeks behind this file). This file is now the single documentation source alongside `README.md`.
+- **Database confirmed unchanged in a way that would affect a `.bak` taken before this session's edits**: the only schema changes this session were additive migrations already covered above; no data was deleted or altered outside of normal app usage.
 
 ### 2026-09-08 — Documentation rewrite + critical migration fix + PO audit
 

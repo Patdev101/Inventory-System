@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\ProductCategory;
 use Illuminate\Http\Request;
 
@@ -12,6 +13,32 @@ class ProductCategoryController extends Controller
         $categories = ProductCategory::latest()->paginate(10);
 
         return view('product_categories.index', compact('categories'));
+    }
+
+    /**
+     * Show soft-deleted product categories, admin-only, so they can be
+     * restored.
+     */
+    public function trashed()
+    {
+        $categories = ProductCategory::onlyTrashed()
+            ->latest('deleted_at')
+            ->paginate(10);
+
+        return view('product_categories.trashed', compact('categories'));
+    }
+
+    /**
+     * Restore a soft-deleted product category.
+     */
+    public function restore(int $productCategory)
+    {
+        $category = ProductCategory::onlyTrashed()->findOrFail($productCategory);
+        $category->restore();
+
+        return redirect()
+            ->route('product-categories.trashed')
+            ->with('success', 'Product category "' . $category->name . '" restored.');
     }
 
     public function create()
@@ -72,10 +99,21 @@ class ProductCategoryController extends Controller
 
     public function destroy(ProductCategory $productCategory)
     {
+        $hasProducts = Product::where('product_category_id', $productCategory->id)->exists();
+
+        if ($hasProducts) {
+            return redirect()
+                ->route('product-categories.index')
+                ->with(
+                    'error',
+                    'This product category cannot be deleted because it still has products.'
+                );
+        }
+
         $productCategory->delete();
 
         return redirect()
             ->route('product-categories.index')
-            ->with('success', 'Product category deleted successfully.');
+            ->with('success', 'Product category deleted. It can be restored by an admin if needed.');
     }
 }

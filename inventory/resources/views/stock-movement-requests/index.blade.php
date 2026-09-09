@@ -62,7 +62,8 @@
                 </form>
 
                 <form method="POST" action="{{ route('stock-movement-requests.reject', $stockMovementRequest) }}"
-                      onsubmit="return confirm('Reject this stock movement request?');">
+                      data-confirm="Reject this stock movement request? The requester will need to submit a new one if this was a mistake."
+                      data-confirm-title="Reject request">
                     @csrf
                     @method('PATCH')
                     <button class="btn btn-danger" type="submit">Reject</button>

@@ -203,6 +203,7 @@
 
     <div class="empty-state">
         <p>No stock alerts match this filter.</p>
+        <a href="{{ route('stock-alerts.index') }}" class="btn btn-secondary">Clear Filters</a>
     </div>
 
 @endforelse

@@ -63,6 +63,7 @@
 @else
     <div class="empty-state">
         <p>No inventory records match this filter.</p>
+        <a href="{{ route('reports.low-stock', ['status' => 'all']) }}" class="btn btn-secondary">View All Statuses</a>
     </div>
 @endif
 

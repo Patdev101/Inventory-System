@@ -25,6 +25,30 @@ class AccountController extends Controller
         ]);
     }
 
+    public function updateName(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+        ]);
+
+        $oldName = $user->name;
+        $newName = trim($validated['name']);
+
+        if ($newName === $oldName) {
+            return back()->with('success', 'Name unchanged.');
+        }
+
+        $user->update(['name' => $newName]);
+
+        $this->auditLogger->nameChangedBySelf($user, $oldName, $newName);
+
+        return redirect()
+            ->route('account.edit')
+            ->with('success', 'Your name has been updated.');
+    }
+
     public function updateEmail(Request $request): RedirectResponse
     {
         $user = $request->user();

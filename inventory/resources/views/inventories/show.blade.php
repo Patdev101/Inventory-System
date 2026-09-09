@@ -973,20 +973,14 @@
     <form
         action="{{ route('inventories.destroy', $inventory) }}"
         method="POST"
+        data-confirm="Delete this inventory record? The remaining stock will be recorded as an OUT transaction."
+        data-confirm-title="Delete inventory record"
     >
 
         @csrf
         @method('DELETE')
 
-        <button
-            type="submit"
-            class="btn btn-danger"
-            onclick="
-                return confirm(
-                    'Delete this inventory record? The remaining stock will be recorded as an OUT transaction.'
-                )
-            "
-        >
+        <button type="submit" class="btn btn-danger">
             Delete Inventory
         </button>
 

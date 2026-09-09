@@ -109,6 +109,11 @@ Route::middleware('auth')->group(function () {
         'edit',
     ])->name('account.edit');
 
+    Route::put('/account/name', [
+        AccountController::class,
+        'updateName',
+    ])->name('account.name.update');
+
     Route::put('/account/email', [
         AccountController::class,
         'updateEmail',
@@ -270,6 +275,16 @@ Route::middleware('auth')->group(function () {
                 'show',
             ]);
 
+        Route::get(
+            '/companies-trashed',
+            [CompanyController::class, 'trashed']
+        )->name('companies.trashed');
+
+        Route::patch(
+            '/companies/{company}/restore',
+            [CompanyController::class, 'restore']
+        )->name('companies.restore');
+
     });
 
     Route::resource('companies', CompanyController::class)
@@ -294,6 +309,16 @@ Route::middleware('auth')->group(function () {
             'index',
             'show',
         ]);
+
+        Route::get(
+            '/product-categories-trashed',
+            [ProductCategoryController::class, 'trashed']
+        )->name('product-categories.trashed');
+
+        Route::patch(
+            '/product-categories/{productCategory}/restore',
+            [ProductCategoryController::class, 'restore']
+        )->name('product-categories.restore');
 
     });
 
@@ -320,6 +345,16 @@ Route::middleware('auth')->group(function () {
                 'show',
             ]);
 
+        Route::get(
+            '/locations-trashed',
+            [LocationController::class, 'trashed']
+        )->name('locations.trashed');
+
+        Route::patch(
+            '/locations/{location}/restore',
+            [LocationController::class, 'restore']
+        )->name('locations.restore');
+
     });
 
     Route::resource('locations', LocationController::class)
@@ -344,6 +379,16 @@ Route::middleware('auth')->group(function () {
             'index',
             'show',
         ]);
+
+        Route::get(
+            '/units-of-measure-trashed',
+            [UnitOfMeasureController::class, 'trashed']
+        )->name('units-of-measure.trashed');
+
+        Route::patch(
+            '/units-of-measure/{units_of_measure}/restore',
+            [UnitOfMeasureController::class, 'restore']
+        )->name('units-of-measure.restore');
 
     });
 

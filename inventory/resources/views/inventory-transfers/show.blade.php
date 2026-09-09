@@ -427,11 +427,8 @@
                         border-color: #dc2626;
                         color: #fff;
                     "
-                    onclick="
-                        return confirm(
-                            'This will mark the item as failed and return the stock to the source location. Continue?'
-                        );
-                    "
+                    data-confirm="This will mark the item as failed and return the stock to the source location. Continue?"
+                    data-confirm-title="Fail audit"
                 >
                     Fail Audit
                 </button>
@@ -594,11 +591,8 @@
                             background: #16a34a;
                             border-color: #16a34a;
                         "
-                        onclick="
-                            return confirm(
-                                'Record this received quantity and add it to the destination stock?'
-                            );
-                        "
+                        data-confirm="Record this received quantity and add it to the destination stock?"
+                        data-confirm-title="Confirm receipt"
                     >
                         Mark Received
                     </button>
