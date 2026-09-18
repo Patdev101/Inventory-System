@@ -131,6 +131,29 @@
         color: #ffffff !important;
     }
 
+    .po-receive-btn-submit:disabled {
+        opacity: 0.7 !important;
+        cursor: not-allowed;
+    }
+
+    .po-receive-btn-spinner {
+        width: 14px;
+        height: 14px;
+        margin-right: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: po-receive-spin 0.7s linear infinite;
+    }
+
+    .po-receive-btn-spinner[hidden] {
+        display: none;
+    }
+
+    @keyframes po-receive-spin {
+        to { transform: rotate(360deg); }
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Cancel Button
@@ -721,6 +744,7 @@
          ================================================================ --}}
 
     <form
+        id="po-receive-form"
         method="POST"
         action="{{ route('purchase-orders.receive', $purchaseOrder) }}"
     >
@@ -1035,9 +1059,11 @@
 
                 <button
                     type="submit"
+                    id="po-receive-submit-btn"
                     class="po-receive-btn po-receive-btn-submit"
                 >
-                    <span>
+                    <span class="po-receive-btn-spinner" hidden></span>
+                    <span class="po-receive-btn-label">
                         Record Receiving
                     </span>
                 </button>
@@ -1049,5 +1075,25 @@
     </form>
 
 </div>
+
+<script>
+    (function () {
+        var form = document.getElementById('po-receive-form');
+        if (!form) return;
+
+        form.addEventListener('submit', function () {
+            var btn = document.getElementById('po-receive-submit-btn');
+            if (!btn || btn.disabled) return;
+
+            // Server-side row locking already prevents a double receive from
+            // corrupting data (see SYSTEM_DOCUMENTATION.md §7.3) — this is
+            // purely so a cashier double-clicking doesn't see nothing happen
+            // and click again while the first request is still in flight.
+            btn.disabled = true;
+            btn.querySelector('.po-receive-btn-spinner').hidden = false;
+            btn.querySelector('.po-receive-btn-label').textContent = 'Saving…';
+        });
+    })();
+</script>
 
 @endsection

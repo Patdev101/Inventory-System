@@ -90,6 +90,55 @@
     border-color: #d1d5db;
 }
 
+.po-btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.email-status-box {
+    margin-top: 15px;
+    padding: 12px 15px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.email-status-box.sent {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+.email-status-box.not-sent {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+}
+
+.email-status-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.email-status-box.sent .email-status-icon {
+    background: #16a34a;
+}
+
+.email-status-box.not-sent .email-status-icon {
+    background: #ea580c;
+}
+
 .po-btn-secondary:hover {
     background: #d1d5db;
 }
@@ -661,9 +710,18 @@
             Download PDF
         </a>
 
-        <a href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}" class="po-btn po-btn-primary">
-            Send Email
-        </a>
+        {{--
+            Emailing the supplier only makes sense once the order is
+            actually approved — a draft or still-pending PO hasn't been
+            authorized for purchase yet, and a rejected one never will be.
+            The intended flow is: submit -> approve -> email the supplier
+            to place the order -> mark as ordered -> receive.
+        --}}
+        @if (in_array($purchaseOrder->status, ['approved', 'ordered', 'partially_received', 'completed', 'received'], true))
+            <a href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}" class="po-btn po-btn-primary">
+                Send Email
+            </a>
+        @endif
 
         <a href="{{ route('purchase-orders.index') }}" class="po-btn po-btn-secondary">
             Back to Purchase Orders
@@ -1244,6 +1302,30 @@
             Available actions depend on the current purchase order status.
         </p>
 
+        @if (in_array($purchaseOrder->status, ['approved', 'ordered', 'partially_received', 'completed', 'received'], true))
+            @php
+                $latestEmail = $purchaseOrder->emails->sortByDesc('sent_at')->first();
+            @endphp
+
+            @if ($latestEmail)
+                <div class="email-status-box sent">
+                    <span class="email-status-icon">&check;</span>
+                    <span>
+                        Emailed to <strong>{{ $latestEmail->to_email }}</strong>
+                        on {{ format_datetime($latestEmail->sent_at) }}
+                        @if ($purchaseOrder->emails->count() > 1)
+                            ({{ $purchaseOrder->emails->count() }} emails sent total)
+                        @endif
+                    </span>
+                </div>
+            @elseif ($purchaseOrder->status === 'approved')
+                <div class="email-status-box not-sent">
+                    <span class="email-status-icon">!</span>
+                    <span>Not yet emailed to the supplier — send it below before marking this order as ordered.</span>
+                </div>
+            @endif
+        @endif
+
         <div class="actions">
 
             {{-- DRAFT --}}
@@ -1289,19 +1371,52 @@
             {{-- APPROVED --}}
             @if ($purchaseOrder->status === 'approved')
 
-                <form
-                    method="POST"
-                    action="{{ route('purchase-orders.mark-ordered', $purchaseOrder) }}"
-                >
+                @php
+                    $lastEmail = $purchaseOrder->emails->sortByDesc('sent_at')->first();
+                @endphp
 
-                    @csrf
-                    @method('PATCH')
+                @if (!$lastEmail)
 
-                    <button type="submit" class="po-btn po-btn-primary">
+                    <a
+                        href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}"
+                        class="po-btn po-btn-primary"
+                    >
+                        Send Email to Supplier
+                    </a>
+
+                    <button
+                        type="button"
+                        class="po-btn po-btn-secondary"
+                        disabled
+                        title="Email the supplier first — this unlocks once it's sent."
+                    >
                         Mark as Ordered
                     </button>
 
-                </form>
+                @else
+
+                    <a
+                        href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}"
+                        class="po-btn po-btn-secondary"
+                    >
+                        Resend Email
+                    </a>
+
+                    <form
+                        method="POST"
+                        action="{{ route('purchase-orders.mark-ordered', $purchaseOrder) }}"
+                    >
+
+                        @csrf
+                        @method('PATCH')
+
+                        <button type="submit" class="po-btn po-btn-primary">
+                            Mark as Ordered
+                        </button>
+
+                    </form>
+
+                @endif
 
             @endif
 

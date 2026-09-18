@@ -424,6 +424,7 @@ class PurchaseOrderController extends Controller
             'receipts.items.purchaseOrderItem.product',
             'receipts.items.purchaseOrderItem.productUnit.unitOfMeasure',
             'activityLogs.user',
+            'emails',
         ]);
 
         return view(
@@ -464,6 +465,15 @@ class PurchaseOrderController extends Controller
     public function composeEmail(
         PurchaseOrder $purchaseOrder
     ) {
+        if (!$this->isEmailableStatus($purchaseOrder->status)) {
+            return redirect()
+                ->route('purchase-orders.show', $purchaseOrder)
+                ->withErrors([
+                    'status' =>
+                        'This purchase order must be approved before it can be emailed to the supplier.',
+                ]);
+        }
+
         $purchaseOrder->load([
             'supplier',
             'location.company',
@@ -485,6 +495,15 @@ class PurchaseOrderController extends Controller
         Request $request,
         PurchaseOrder $purchaseOrder
     ) {
+        if (!$this->isEmailableStatus($purchaseOrder->status)) {
+            return redirect()
+                ->route('purchase-orders.show', $purchaseOrder)
+                ->withErrors([
+                    'status' =>
+                        'This purchase order must be approved before it can be emailed to the supplier.',
+                ]);
+        }
+
         $validated = $request->validate([
             'to_email' => ['required', 'email', 'max:255'],
             'cc_email' => ['nullable', 'email', 'max:255'],
@@ -753,5 +772,22 @@ class PurchaseOrderController extends Controller
                 . $purchaseOrder->po_number
                 . '.'
             );
+    }
+
+    /**
+     * True once a PO has actually been authorized for purchase — a draft
+     * or still-pending PO hasn't been approved yet, and a rejected one
+     * never will be, so emailing a supplier at either point would send a
+     * request nobody signed off on.
+     */
+    private function isEmailableStatus(string $status): bool
+    {
+        return in_array($status, [
+            PurchaseOrder::STATUS_APPROVED,
+            PurchaseOrder::STATUS_ORDERED,
+            PurchaseOrder::STATUS_PARTIALLY_RECEIVED,
+            PurchaseOrder::STATUS_RECEIVED,
+            PurchaseOrder::STATUS_COMPLETED,
+        ], true);
     }
 }

@@ -176,6 +176,30 @@
 
         <div class="form-group">
 
+            <label for="barcode">
+                Barcode
+                <small>(Optional)</small>
+            </label>
+
+            <input
+                type="text"
+                id="barcode"
+                name="barcode"
+                class="form-control"
+                value="{{ old('barcode') }}"
+                maxlength="100"
+                placeholder="Scan or type the product barcode"
+            >
+
+            <small class="help-text">
+                Used by the POS to add this product to a sale by scanning. Leave blank if this product has no barcode.
+            </small>
+
+        </div>
+
+
+        <div class="form-group">
+
             <label for="item_code">
                 Item Code
                 <small>(Optional)</small>

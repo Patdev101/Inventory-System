@@ -100,6 +100,13 @@ class ProductController extends Controller
                 'unique:products,sku',
             ],
 
+            'barcode' => [
+                'nullable',
+                'string',
+                'max:100',
+                'unique:products,barcode',
+            ],
+
             'item_code' => [
                 'nullable',
                 'string',
@@ -186,6 +193,8 @@ class ProductController extends Controller
                 $validated['name'],
 
             'sku' => $sku,
+
+            'barcode' => $validated['barcode'] ?? null,
 
             'item_code' => $itemCode,
 
@@ -315,6 +324,13 @@ class ProductController extends Controller
                 'string',
                 'max:100',
                 'unique:products,sku,' . $product->id,
+            ],
+
+            'barcode' => [
+                'nullable',
+                'string',
+                'max:100',
+                'unique:products,barcode,' . $product->id,
             ],
 
             'item_code' => [
@@ -525,6 +541,9 @@ class ProductController extends Controller
 
                 'sku' =>
                     $validated['sku'] ?? $product->sku,
+
+                'barcode' =>
+                    $validated['barcode'] ?? null,
 
                 'item_code' =>
                     $validated['item_code'] ?? $product->item_code,

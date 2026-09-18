@@ -6,7 +6,9 @@ use App\Models\Inventory;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransfer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Response;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -23,7 +25,92 @@ class ReportController extends Controller
     {
         $filters = $request->only(['type', 'from', 'to', 'search']);
 
-        $transactions = InventoryTransaction::with([
+        $transactions = $this->stockMovementsQuery($filters)
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('reports.stock-movements', compact('transactions', 'filters'));
+    }
+
+    public function transfers(Request $request): View
+    {
+        $filters = $request->only(['from', 'to', 'search']);
+
+        $transfers = $this->transfersQuery($filters)
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('reports.transfers', compact('transfers', 'filters'));
+    }
+
+    public function lowStock(Request $request): View
+    {
+        $status = $request->query('status', 'all');
+
+        $inventories = $this->lowStockQuery($status)
+            ->orderBy('base_quantity')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('reports.low-stock', compact('inventories', 'status'));
+    }
+
+    public function exportStockMovements(Request $request): StreamedResponse
+    {
+        $filters = $request->only(['type', 'from', 'to', 'search']);
+        $transactions = $this->stockMovementsQuery($filters)->get();
+
+        return $this->streamCsv('stock-movements', ['Date', 'Type', 'Product', 'Location', 'Quantity', 'Unit', 'Base Quantity', 'Reference'], $transactions, function ($transaction) {
+            return [
+                format_datetime($transaction->created_at),
+                $transaction->getDirectionLabelAttribute(),
+                $transaction->product?->name ?? 'Deleted product',
+                $transaction->location?->name ?? 'Deleted location',
+                format_qty((float) $transaction->quantity),
+                $transaction->productUnit?->unitOfMeasure?->code ?? '',
+                format_qty((float) $transaction->base_quantity),
+                $transaction->reference ?: '',
+            ];
+        });
+    }
+
+    public function exportTransfers(Request $request): StreamedResponse
+    {
+        $filters = $request->only(['from', 'to', 'search']);
+        $transfers = $this->transfersQuery($filters)->get();
+
+        return $this->streamCsv('transfers', ['Date', 'Product', 'From', 'To', 'Quantity', 'Unit', 'Reference'], $transfers, function ($transfer) {
+            return [
+                format_datetime($transfer->created_at),
+                $transfer->product?->name ?? 'Deleted product',
+                $transfer->sourceInventory?->location?->name ?? '',
+                $transfer->destinationInventory?->location?->name ?? '',
+                format_qty((float) $transfer->quantity),
+                $transfer->productUnit?->unitOfMeasure?->code ?? '',
+                $transfer->reference ?: '',
+            ];
+        });
+    }
+
+    public function exportLowStock(Request $request): StreamedResponse
+    {
+        $status = $request->query('status', 'all');
+        $inventories = $this->lowStockQuery($status)->orderBy('base_quantity')->get();
+
+        return $this->streamCsv('low-stock', ['Product', 'Location', 'Base Quantity', 'Reorder Point', 'Status'], $inventories, function ($inventory) {
+            return [
+                $inventory->product?->name ?? 'Deleted product',
+                $inventory->location?->name ?? 'Deleted location',
+                format_qty($inventory->getBaseQuantityValue()),
+                format_qty($inventory->getReorderPointValue()),
+                $inventory->getStockStatus(),
+            ];
+        });
+    }
+
+    private function stockMovementsQuery(array $filters)
+    {
+        return InventoryTransaction::with([
             'product',
             'location',
             'productUnit.unitOfMeasure',
@@ -48,18 +135,12 @@ class ReportController extends Controller
                     });
                 });
             })
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
-
-        return view('reports.stock-movements', compact('transactions', 'filters'));
+            ->latest();
     }
 
-    public function transfers(Request $request): View
+    private function transfersQuery(array $filters)
     {
-        $filters = $request->only(['from', 'to', 'search']);
-
-        $transfers = InventoryTransfer::with([
+        return InventoryTransfer::with([
             'product',
             'sourceInventory.location',
             'destinationInventory.location',
@@ -76,20 +157,14 @@ class ReportController extends Controller
                     $query->where('name', 'like', '%' . $search . '%');
                 });
             })
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
-
-        return view('reports.transfers', compact('transfers', 'filters'));
+            ->latest();
     }
 
-    public function lowStock(Request $request): View
+    private function lowStockQuery(string $status)
     {
-        $status = $request->query('status', 'all');
-
         $query = Inventory::with(['product', 'location']);
 
-        $query = match ($status) {
+        return match ($status) {
             'out_of_stock' => $query->outOfStock(),
             'critical' => $query->criticalStock(),
             'low' => $query->lowStock(),
@@ -109,12 +184,31 @@ class ReportController extends Controller
                     });
             }),
         };
+    }
 
-        $inventories = $query
-            ->orderBy('base_quantity')
-            ->paginate(20)
-            ->withQueryString();
+    /**
+     * Streams a CSV so a large report doesn't have to be built in memory
+     * first — rows are written to the output buffer as they're read.
+     * Exports the full filtered result set, not just the current page.
+     */
+    private function streamCsv(string $filename, array $headers, iterable $rows, callable $mapRow): StreamedResponse
+    {
+        $callback = function () use ($headers, $rows, $mapRow) {
+            $handle = fopen('php://output', 'w');
+            // Leading BOM so Excel opens UTF-8 CSVs without mangling special characters.
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, $headers);
 
-        return view('reports.low-stock', compact('inventories', 'status'));
+            foreach ($rows as $row) {
+                fputcsv($handle, $mapRow($row));
+            }
+
+            fclose($handle);
+        };
+
+        return Response::stream($callback, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '-' . now()->format('Y-m-d') . '.csv"',
+        ]);
     }
 }

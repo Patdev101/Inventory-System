@@ -92,7 +92,7 @@
         </h2>
 
         <div class="product-hero-sku">
-            SKU: {{ $product->sku ?? '—' }} &nbsp;•&nbsp; Item Code: {{ $product->item_code ?? '—' }}
+            SKU: {{ $product->sku ?? '—' }} &nbsp;•&nbsp; Barcode: {{ $product->barcode ?? '—' }} &nbsp;•&nbsp; Item Code: {{ $product->item_code ?? '—' }}
         </div>
 
         <div class="product-hero-meta">

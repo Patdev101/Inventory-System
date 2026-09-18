@@ -30,6 +30,7 @@
         @if (array_filter($filters))
             <a href="{{ route('reports.transfers') }}" class="btn btn-secondary">Reset</a>
         @endif
+        <a href="{{ route('reports.transfers.export', $filters) }}" class="btn btn-secondary">Export CSV</a>
     </form>
 </div>
 

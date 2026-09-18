@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountAuditLogController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
@@ -59,6 +60,21 @@ Route::get('/forgot-password', [
     PasswordResetController::class,
     'create',
 ])->name('password.request');
+
+Route::post('/forgot-password', [
+    PasswordResetController::class,
+    'sendResetLink',
+])->name('password.email');
+
+Route::get('/reset-password/{token}', [
+    PasswordResetController::class,
+    'resetForm',
+])->name('password.reset');
+
+Route::post('/reset-password', [
+    PasswordResetController::class,
+    'reset',
+])->name('password.update');
 
 
 /*
@@ -193,6 +209,11 @@ Route::middleware('auth')->group(function () {
             'resetPassword',
         ])->name('users.reset-password.store');
 
+        Route::get('/account-audit-log', [
+            AccountAuditLogController::class,
+            'index',
+        ])->name('account-audit-log.index');
+
     });
 
 
@@ -257,6 +278,21 @@ Route::middleware('auth')->group(function () {
                 ReportController::class,
                 'lowStock',
             ])->name('low-stock');
+
+            Route::get('/stock-movements/export', [
+                ReportController::class,
+                'exportStockMovements',
+            ])->name('stock-movements.export');
+
+            Route::get('/transfers/export', [
+                ReportController::class,
+                'exportTransfers',
+            ])->name('transfers.export');
+
+            Route::get('/low-stock/export', [
+                ReportController::class,
+                'exportLowStock',
+            ])->name('low-stock.export');
 
         });
 

@@ -18,6 +18,7 @@
         <a href="{{ route('reports.low-stock', ['status' => 'out_of_stock']) }}" class="btn {{ $status === 'out_of_stock' ? 'btn-primary' : 'btn-secondary' }}">Out of Stock</a>
         <a href="{{ route('reports.low-stock', ['status' => 'critical']) }}" class="btn {{ $status === 'critical' ? 'btn-primary' : 'btn-secondary' }}">Critical</a>
         <a href="{{ route('reports.low-stock', ['status' => 'low']) }}" class="btn {{ $status === 'low' ? 'btn-primary' : 'btn-secondary' }}">Low Stock</a>
+        <a href="{{ route('reports.low-stock.export', ['status' => $status]) }}" class="btn btn-secondary" style="margin-left: auto;">Export CSV</a>
     </div>
 </div>
 

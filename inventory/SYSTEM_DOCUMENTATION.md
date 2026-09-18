@@ -5,7 +5,106 @@
 **Database:** SQL Server (production/dev), SQLite in-memory (automated tests)
 **Project path:** `c:\projects\shogun\inventory`
 **Companion project:** `c:\projects\shogun\possystem` (POS) — separate Laravel app, separate database, talks to this app only over the token-authenticated `/api/*` routes below.
-**Documentation date:** 2026-09-09 (see Section 18 changelog for everything shipped since the 2026-09-08 version below — UX pass, soft-delete/restore, deploy prep, repo cleanup)
+**Documentation date:** 2026-09-18 (a first-time-setup tutorial now opens this document, right after this header — see Section 18 changelog for everything else shipped this pass: a new Account Audit Log with plain-English event descriptions (Section 11), real self-service email password reset, CSV export on all three Reports, a double-submit guard on PO receiving, and a `.env.example` + `inventory:create-admin` command for clean handover — plus everything shipped since the 2026-09-08 version below: UX pass, soft-delete/restore, deploy prep, repo cleanup)
+
+---
+
+## Setting This Up for the First Time? Read This First
+
+**If you're the business receiving this project (not the intern who built it), start here — this is a one-time setup, not something you need the rest of this document for yet.**
+
+This project was built by an intern, not an employee — the dev database (both this app's SQL Server DB and the companion POS app's SQLite file) contains seeded demo data and demo accounts (`admin@example.com` / password `password`, and POS's `cashier@shogun.local` / `manager@shogun.local` / `admin@shogun.local`, all password `password123`). **None of that should ship to the real deployment.** Handing over the populated database (or a `.bak`) would mean handing over an intern's test data and a set of publicly-known demo passwords baked into a real business system.
+
+**What to hand over: the code folders only — not the database, not `.env`, not `vendor/`/`node_modules/`.**
+
+- ✅ Send: this project folder and the companion `POS-System` folder (which include `.env.production` and `.env.example`), and each project's `SYSTEM_DOCUMENTATION.md`.
+- ❌ Don't send: `.env` (dev secrets), any SQL Server backup / the SQLite file (demo data + demo passwords), `vendor/`, `node_modules/`, or anything in `storage/logs/`.
+
+### Two starting templates — which one to use
+
+Both apps ship two `.env` templates, and it matters which one you copy from:
+
+- **`.env.production`** — the one to use for a real deployment. Already tuned with production-safe defaults (`APP_DEBUG=false`, error-level logging instead of noisy debug logging) and has `# TODO:` comments marking every value that genuinely needs to be filled in for your setup (server URL, database credentials, a fresh API token, real mail credentials). **Start here.**
+- **`.env.example`** — Laravel's plain default template, tuned for local development (`APP_DEBUG=true`, verbose logging). Only use this if you're setting up a dev/test copy of the app, not a real deployment.
+
+Neither file contains real secrets — both are safe to send along with the code.
+
+### Setup tutorial (run once, per app, on the real server)
+
+Repeat these steps twice — once inside this project (`Inventory-System/inventory`), once inside the companion POS app (`POS-System/possystem`). Wherever a step differs between the two, both versions are given.
+
+**1. Install dependencies**
+
+```
+composer install
+```
+
+**2. Create your own `.env`**
+
+Copy the production template and open it in a text editor:
+
+```
+copy .env.production .env
+```
+
+Work through every line marked `# TODO:` in the file — at minimum:
+- Your real database connection details (`DB_CONNECTION`, `DB_DATABASE`, `DB_HOST`, `DB_USERNAME`, `DB_PASSWORD`) — a fresh, empty database, not a copy of the intern's.
+- `APP_URL` — the real address this app will be reached at (currently a placeholder, `http://CHANGE-ME` — a wrong value here breaks password-reset email links).
+- `INVENTORY_API_TOKEN` — generate one random value (e.g. run `php artisan tinker --execute="echo bin2hex(random_bytes(32));"` once) and paste the **exact same value** into both this app's and POS's `.env` files. This is how POS and Inventory authenticate to each other; if these two values don't match, POS will show "Unable to reach the inventory service" everywhere even though Inventory is actually running.
+- `VAT_RATE` — must match POS's `POS_TAX_RATE` exactly, or POS will refuse to serve pricing.
+- Mail settings (`MAIL_MAILER`, `MAIL_HOST`, etc.) if you want the "forgot password" feature to actually send email — otherwise it still points at a local test-mail catcher that won't reach anyone. See "Which mail service should I use?" below if you're not sure.
+
+`APP_DEBUG=false` is already set correctly in this template — leave it that way. (Turning it `true` shows visitors a full error/stack-trace page on any failure — never do that on a real deployment.)
+
+Then generate the app's encryption key (leave `APP_KEY` blank first, this fills it in):
+
+```
+php artisan key:generate
+```
+
+**3. Create the database tables (empty — no demo data)**
+
+```
+php artisan migrate
+```
+
+**Do not** run `php artisan migrate --seed` or anything mentioning `DatabaseSeeder` — that's what creates the demo accounts and fake products, and it's for the intern's own testing only.
+
+**4. Create your real first admin account**
+
+- In this app: `php artisan inventory:create-admin`
+- In POS: `php artisan pos:create-admin`
+
+Both prompt interactively for a name, email, and password — nothing is typed as a command-line argument, so it never ends up saved in shell history. (If your terminal can't hide the password as you type, it'll say so and let you type it visibly instead — that's expected on some Windows terminals, not a bug.)
+
+That one account can then create every other account (managers, staff/cashiers) from inside the app itself — **User Management** here, **Manage Users** in POS. No more command-line steps are needed after this.
+
+**5. Start the apps and sign in**
+
+```
+php artisan serve --port=8001   (for this app)
+php artisan serve --port=8002   (for POS)
+```
+
+(Use whatever ports/hosting setup your actual server needs — `php artisan serve` is fine for a quick local test, but a real production deployment should run behind a proper web server like IIS or Nginx, not this built-in dev server — see Section 17 for the deploy checklist.)
+
+Sign in at `/login` (this app) or `/pos/login` (POS) with the admin account from step 4.
+
+**If something doesn't work:** the single most common cause is a value in `.env` that still says `localhost`, `127.0.0.1`, or the intern's port numbers — check `APP_URL` and `INVENTORY_API_TOKEN` first.
+
+This keeps the actual employees as the only people who ever know the real admin credentials — the intern's dev environment and the production one never share data or secrets.
+
+### Which mail service should I use? (for the "forgot password" email)
+
+You don't need anything fancy — pick whichever of these matches what you already have, in order of "least new signup required":
+
+1. **No new signup — use email you already have.** If the company already has any Gmail or Google Workspace account (or business email through a web host/Microsoft 365), use it directly via SMTP with an "App Password" (a special password just for this, not the real login password — requires 2-Step Verification turned on, generated at myaccount.google.com → Security → App Passwords). Set `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME=<the email>`, `MAIL_PASSWORD=<the app password>`. **Limitation:** roughly 500 emails/day cap, and can get flagged if sending looks automated at real volume — fine for password resets at a small team's scale, not something to scale on.
+2. **A free transactional email service**, if you want something built to scale later without hitting that cap: **Resend** (resend.com — free account, generate an API key under API Keys, then use `MAIL_HOST=smtp.resend.com`, `MAIL_PORT=587`, `MAIL_USERNAME=resend`, `MAIL_PASSWORD=<the API key>`) is the simplest to set up. Brevo and Mailgun are solid alternatives if you'd rather use one of those.
+3. **Skip real email for now.** Leave `MAIL_MAILER=log` — "forgot password" requests just get written to the log file instead of emailed. Not self-service for the end user, but zero setup. A manager/admin can still reset anyone's password directly from User Management (this app) / Manage Users (POS) regardless of this setting.
+
+Either way, both `INVENTORY_API_TOKEN` accuracy and this mail setting are the two `.env` values most likely to look "broken" if skipped — the rest of the app works fine without email configured, it just falls back to admin-driven resets.
+
+**Already set up, and want to understand how the system works or what's been built?** Keep reading below — Section 0 is where the technical documentation starts.
 
 ---
 
@@ -314,7 +413,8 @@ Session-guard auth (`/login`, `/logout`), rate-limited login (5 attempts/60s per
 - **My Account** (`/account`) — every user can change their own email (requires current password) and password (requires current password, confirmed). Route: `AccountController`.
 - **Admin User Management** (`/users/{user}/edit`, `/users/{user}/reset-password`) — admin can edit anyone's name/email/role/active-status and reset anyone's password, **including other admins** (fixed this session — see the git history around `UserController::canManage()`; admin used to be blocked from managing other admins due to reusing the "creatable roles" list for "manageable users", which is a different question). An admin can never act on their **own** account through these routes (redirected to My Account instead) — this is how "can't disable own account" / "can't remove own admin role" is enforced.
 - **Forced password change** — `users.must_change_password`. When set (by an admin's "require password change on next login" checkbox during reset), `EnsureNoForcedPasswordChange` middleware blocks every route except `/account` and logout until the user sets a new password.
-- **No email-based password reset.** `/forgot-password` shows a static "contact an administrator" page. There is no mail service wired up for this — by design (local/internal system).
+- **Email-based password reset (added 2026-09-18).** `/forgot-password` sends a real reset link via Laravel's `Password` broker, using the local Mailpit instance already configured for dev mail (see §18's 2026-09-18 entry) — verified end-to-end, not just wired up and assumed working. An admin can still reset anyone's password directly from User Management as a fallback/faster path.
+- **Account Audit Log (added 2026-09-18).** Every account-management event (name/email/password/role/status change, self or admin-driven) was already being logged via `AccountAuditLogger` — but only to `storage/logs/laravel.log` as plain text, with no database table and no screen, mirroring the exact gap POS's `PosAuditLogger` had before this same fix was applied there. `AccountAuditLogger` now writes to both the log file and a new `account_audit_logs` table via a single `record()` helper. New screen at `/account-audit-log` (admin/manager, linked from the Users page), filterable by event/date, paginated. Learning directly from user feedback on the POS version of this same feature (raw JSON was unreadable to a non-technical manager), **this was built with plain-English descriptions from the start** rather than shipping raw JSON and fixing it later — e.g. `account.role.changed_by_admin` renders as "Changed jane@example.com's role from staff to manager." rather than the underlying JSON context object. The raw JSON is still available per row behind a collapsed "Technical details" toggle. Verified live: triggered a real name change, confirmed it appeared correctly worded on the new screen, then reverted the demo admin's name back.
 
 ---
 
@@ -345,6 +445,7 @@ Session-guard auth (`/login`, `/logout`), rate-limited login (5 attempts/60s per
 - [x] Stock movement log with filters (type, date range, search)
 - [x] Transfer log with filters (date range, search)
 - [x] Low-stock drill-down list by status
+- [x] CSV export on all three reports (added 2026-09-18), full filtered result set, not just the current page
 - [ ] No automated test coverage for any report route
 - [ ] No role restriction — any authenticated user (including staff) sees all reports; confirm this is intentional
 
@@ -376,7 +477,7 @@ Session-guard auth (`/login`, `/logout`), rate-limited login (5 attempts/60s per
 | P1 | Add PO approve/reject authorization test + cross-company validation test | `PurchaseOrderController::store()`/`approve()`/`reject()` have real logic with zero direct test coverage | `PurchaseOrderService`, `PurchaseOrderController` | Not started |
 | P2 | Feed PO `unit_price` back into `Product.cost_price` on receipt (or make the relationship an explicit choice, e.g. "update cost price from latest PO" toggle) | Pricing/margin figures can silently drift from what was actually paid | `PurchaseOrderService::receiveItems()`, `ProductController` | Not started — needs a product decision first (always overwrite? average cost? manual-only with a suggestion?) |
 | P2 | Unify stock math between `InventoryMovementService` and `InventoryApiController` | Two independent implementations of the same base-unit conversion/negative-stock-guard logic can drift | Both files | Not started |
-| P3 | Client-side double-submit guard on the PO receive form (disable button on submit) | Minor UX polish; server-side locking already prevents real data corruption | `resources/views/purchase-orders/receive.blade.php` | Not started |
+| P3 | ~~Client-side double-submit guard on the PO receive form (disable button on submit)~~ | Minor UX polish; server-side locking already prevents real data corruption | `resources/views/purchase-orders/receive.blade.php` | ✅ **Done 2026-09-18** |
 | P3 | Re-sync `VAT_RATE` (Inventory) / `POS_TAX_RATE` (POS) into one place, or add a startup check that warns if they differ | Silent mismatch would make receipts disagree between systems | Both apps' `.env`/config | Not started |
 | P2 | Add feature tests for `ReportController` (stock-movements/transfers/low-stock filters) | Zero automated coverage on a module already live in production | New test file, Section 6.2 | Not started |
 | P3 | Decide the fate of `App\Models\InventoryTransferitem.php` (table `inventory_transfer_items`) | Dead code — referenced nowhere in `app/`; either wire it into a real multi-line-transfer feature or delete the model + migration | `app/Models/InventoryTransferitem.php` | Not started — needs a product decision |
@@ -497,6 +598,14 @@ Production hardening checklist (permissions, mail, backups, monitoring, secrets)
 ---
 
 ## 18. Changelog
+
+### 2026-09-18 — Real password reset, CSV exports, PO-receive double-submit guard, clean-handover setup
+
+- **Real self-service email password reset** — `/forgot-password` previously only showed a static "contact an administrator" page (Section 11). Now uses Laravel's built-in `Password` broker end-to-end: `PasswordResetController::sendResetLink()`/`resetForm()`/`reset()`, new `auth/reset-password.blade.php` view, routes `password.email`/`password.reset`/`password.update`. On successful reset, all of that user's Sanctum tokens are revoked (matching the existing admin-driven reset). **Verified live, not assumed**: submitted the form → a real email arrived via the local Mailpit instance already used for dev mail → the link's host/token were correct → submitted a new password → logged in successfully with it → restored the demo admin's password (`password`) afterward. The admin-driven reset from User Management remains as a fallback path.
+- **CSV export added to all three Reports** (Stock Movements, Transfers, Low Stock) — "Export CSV" button next to each report's filters, exporting the *full* filtered result set (not just the current page) via a streamed download (`ReportController::exportStockMovements()`/`exportTransfers()`/`exportLowStock()`, sharing the same filter-building query methods the on-screen reports already used). UTF-8 BOM included so Excel doesn't mangle special characters. Verified live against real seeded data for all three.
+- **Double-submit guard on the PO receiving form** — this was already flagged in this file's own Section 13 (P3) roadmap and just hadn't been done yet. The Record Receiving button now disables itself with a spinner on submit. Purely a UX fix — server-side row locking already prevented any real double-receive data corruption (Section 7.3).
+- **Clean-handover setup**: this project previously had no `.env.example` at all — created one, with the real dev secrets (`APP_KEY`, `INVENTORY_API_TOKEN`) stripped out. Also added `php artisan inventory:create-admin` (interactive — prompts for name/email/password, nothing typed as a command-line argument), so a fresh install never needs the dev database's seeded demo accounts. While building it, found that masked password input (`secret()`) can silently fail on some Windows terminal/Symfony Console combinations (confirmed happening on this project's Symfony 7.4, not on POS's Symfony 8.1) — added a fallback that switches to visible input with a warning rather than the command failing with a confusing validation error.
+- **New Account Audit Log** (Section 11) — account-management events were already logged via `AccountAuditLogger`, but only to the plain-text log file, with no database table or viewing screen (the same gap POS's `PosAuditLogger` had, fixed there first). Now also written to a new `account_audit_logs` table and browsable at `/account-audit-log`, with plain-English descriptions per event (not raw JSON) built in from the start based on direct feedback on the POS version of this feature. A `.env`-config-driven first-time-setup tutorial was also moved to the very top of this document, ahead of the technical sections, so whoever receives this project for real deployment sees setup instructions before anything else.
 
 ### 2026-09-09 — UX pass, soft-delete/restore, deploy prep, repo cleanup
 

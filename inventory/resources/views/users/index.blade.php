@@ -9,9 +9,14 @@
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h1>Users</h1>
 
-        <a href="{{ route('users.create') }}" class="btn btn-primary">
-            + Add User
-        </a>
+        <div style="display: flex; gap: 10px;">
+            <a href="{{ route('account-audit-log.index') }}" class="btn btn-secondary">
+                Audit Log
+            </a>
+            <a href="{{ route('users.create') }}" class="btn btn-primary">
+                + Add User
+            </a>
+        </div>
     </div>
 
     @if($users->count())

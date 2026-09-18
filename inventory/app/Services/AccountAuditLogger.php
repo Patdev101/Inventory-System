@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AccountAuditLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
@@ -12,74 +13,95 @@ use Illuminate\Support\Facades\Log;
  */
 class AccountAuditLogger
 {
+    protected function record(string $event, array $context, ?int $userId = null, ?string $subjectType = null, ?int $subjectId = null): void
+    {
+        Log::info($event, $context);
+
+        AccountAuditLog::create([
+            'event' => $event,
+            'user_id' => $userId,
+            'subject_type' => $subjectType,
+            'subject_id' => $subjectId,
+            'context' => $context,
+        ]);
+    }
+
     public function emailChangedBySelf(User $user, string $oldEmail, string $newEmail): void
     {
-        Log::info('account.email.changed_by_self', [
+        $this->record('account.email.changed_by_self', [
             'user_id' => $user->id,
             'old_email' => $oldEmail,
             'new_email' => $newEmail,
-        ]);
+        ], $user->id, User::class, $user->id);
     }
 
     public function nameChangedBySelf(User $user, string $oldName, string $newName): void
     {
-        Log::info('account.name.changed_by_self', [
+        $this->record('account.name.changed_by_self', [
             'user_id' => $user->id,
             'old_name' => $oldName,
             'new_name' => $newName,
-        ]);
+        ], $user->id, User::class, $user->id);
     }
 
     public function passwordChangedBySelf(User $user): void
     {
-        Log::info('account.password.changed_by_self', [
+        $this->record('account.password.changed_by_self', [
             'user_id' => $user->id,
             'email' => $user->email,
-        ]);
+        ], $user->id, User::class, $user->id);
     }
 
     public function emailChangedByAdmin(User $admin, User $target, string $oldEmail, string $newEmail): void
     {
-        Log::info('account.email.changed_by_admin', [
+        $this->record('account.email.changed_by_admin', [
             'admin_id' => $admin->id,
             'admin_email' => $admin->email,
             'target_user_id' => $target->id,
             'old_email' => $oldEmail,
             'new_email' => $newEmail,
-        ]);
+        ], $admin->id, User::class, $target->id);
     }
 
     public function roleChangedByAdmin(User $admin, User $target, string $oldRole, string $newRole): void
     {
-        Log::info('account.role.changed_by_admin', [
+        $this->record('account.role.changed_by_admin', [
             'admin_id' => $admin->id,
             'admin_email' => $admin->email,
             'target_user_id' => $target->id,
             'target_email' => $target->email,
             'old_role' => $oldRole,
             'new_role' => $newRole,
-        ]);
+        ], $admin->id, User::class, $target->id);
     }
 
     public function statusChangedByAdmin(User $admin, User $target, bool $isActive): void
     {
-        Log::info('account.status.changed_by_admin', [
+        $this->record('account.status.changed_by_admin', [
             'admin_id' => $admin->id,
             'admin_email' => $admin->email,
             'target_user_id' => $target->id,
             'target_email' => $target->email,
             'is_active' => $isActive,
-        ]);
+        ], $admin->id, User::class, $target->id);
     }
 
     public function passwordResetByAdmin(User $admin, User $target, bool $mustChangePassword): void
     {
-        Log::info('account.password.reset_by_admin', [
+        $this->record('account.password.reset_by_admin', [
             'admin_id' => $admin->id,
             'admin_email' => $admin->email,
             'target_user_id' => $target->id,
             'target_email' => $target->email,
             'must_change_password' => $mustChangePassword,
-        ]);
+        ], $admin->id, User::class, $target->id);
+    }
+
+    public function passwordResetViaEmailLink(User $user): void
+    {
+        $this->record('account.password.reset_via_email_link', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ], $user->id, User::class, $user->id);
     }
 }
