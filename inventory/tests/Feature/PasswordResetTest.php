@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -16,35 +17,32 @@ class PasswordResetTest extends TestCase
         $this->get(route('password.request'))->assertOk();
     }
 
-    public function test_forgot_password_page_instructs_the_user_to_contact_an_admin(): void
+    public function test_forgot_password_page_shows_the_email_form(): void
     {
-        $response = $this->get(route('password.request'));
-
-        $response->assertOk();
-        $response->assertSee('contact an administrator', false);
-        $response->assertDontSee('<form', false);
+        $this->get(route('password.request'))
+            ->assertOk()
+            ->assertSee('<form', false);
     }
 
-    public function test_forgot_password_never_sends_a_reset_email(): void
+    public function test_forgot_password_sends_a_reset_link_to_a_known_email(): void
     {
         Notification::fake();
 
-        User::factory()->create(['email' => 'someone@example.com']);
+        $user = User::factory()->create(['email' => 'someone@example.com']);
 
-        $this->get(route('password.request'))->assertOk();
+        $this->post(route('password.email'), ['email' => 'someone@example.com']);
 
-        Notification::assertNothingSent();
+        Notification::assertSentTo($user, ResetPassword::class);
     }
 
-    public function test_email_based_password_reset_routes_no_longer_exist(): void
+    public function test_forgot_password_does_not_reveal_unknown_emails(): void
     {
-        // GET /forgot-password still exists (it's the contact-an-admin
-        // page) but there is no POST handler to send a reset email.
-        $this->post('/forgot-password', ['email' => 'someone@example.com'])
-            ->assertStatus(405);
+        Notification::fake();
 
-        $this->get('/reset-password/some-token')
-            ->assertStatus(404);
+        $known = $this->post(route('password.email'), ['email' => 'nobody@example.com']);
+
+        Notification::assertNothingSent();
+        $known->assertSessionDoesntHaveErrors('email');
     }
 
     public function test_login_is_rate_limited_after_repeated_failures(): void

@@ -6,7 +6,33 @@ API that the separate **POS System** (`../possystem`) reads from at checkout
 time — the Inventory app is the single source of truth for products,
 pricing, and stock; the POS never stores its own copy of product data.
 
-## Setup
+## Getting started (fresh clone / production)
+
+Requires PHP 8.3+ (with `mbstring`, `openssl`, `curl`, `xml`, `zip`,
+`sqlsrv` and `pdo_sqlsrv`), Composer 2, and a Microsoft SQL Server database
+(with Microsoft ODBC Driver 18 installed).
+
+1. Create an empty SQL Server database (e.g. `inventory_DB`).
+2. Set it up:
+
+```bash
+composer install --no-dev --optimize-autoloader
+cp .env.example .env            # Windows: copy .env.example .env
+php artisan key:generate
+# edit .env: DB_HOST / DB_DATABASE / DB_USERNAME / DB_PASSWORD,
+# APP_URL, INVENTORY_API_TOKEN (must match the POS), VAT_RATE, MAIL_*
+php artisan migrate --force
+php artisan storage:link
+php artisan inventory:create-admin   # prompts for name, email, password
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+php artisan serve --port=8001        # local only; use Nginx/Apache/Plesk in production
+```
+
+For production also set `APP_ENV=production` and `APP_DEBUG=false` (see
+`.env.production`). **Do not run `--seed` in production** — it creates demo
+accounts with the password `password`.
+
+## Development setup
 
 ```bash
 composer install
@@ -15,8 +41,8 @@ php artisan key:generate
 php artisan migrate --seed
 ```
 
-Default seeded accounts (see `database/seeders/DatabaseSeeder.php`), all
-with password `password`:
+Default seeded accounts (development only; see
+`database/seeders/DatabaseSeeder.php`), all with password `password`:
 
 | Role    | Email               |
 |---------|---------------------|

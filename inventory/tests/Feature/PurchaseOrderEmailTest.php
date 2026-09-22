@@ -45,7 +45,10 @@ class PurchaseOrderEmailTest extends TestCase
             ],
         ]);
 
-        return PurchaseOrder::query()->latest('id')->firstOrFail();
+        $purchaseOrder = PurchaseOrder::query()->latest('id')->firstOrFail();
+        $purchaseOrder->update(['status' => PurchaseOrder::STATUS_APPROVED]);
+
+        return $purchaseOrder;
     }
 
     public function test_sending_a_purchase_order_email_logs_it_and_sends_mail(): void
