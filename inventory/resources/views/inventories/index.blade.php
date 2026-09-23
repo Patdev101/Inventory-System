@@ -471,10 +471,10 @@
                                 {{ $inventory->product->name }}
                             </div>
 
-                            @if ($inventory->product->code)
+                            @if ($inventory->product->sku)
 
                                 <div class="product-code">
-                                    {{ $inventory->product->code }}
+                                    {{ $inventory->product->sku }}
                                 </div>
 
                             @endif

@@ -264,7 +264,7 @@ class ProductPricingTest extends TestCase
         $this->assertNull($product->cost_price);
     }
 
-    public function test_inventory_api_returns_pricing_fields_and_keeps_selling_price_unchanged(): void
+    public function test_inventory_api_returns_selling_price_but_not_cost_or_margin(): void
     {
         config(['services.pos.api_token' => 'test-token']);
 
@@ -290,10 +290,9 @@ class ProductPricingTest extends TestCase
 
         $this->assertNotNull($data);
         $this->assertEquals('60.00', $data['selling_price']);
-        $this->assertEquals('40.0000', $data['cost_price']);
-        $this->assertEquals('50.0000', $data['markup_percentage']);
-        $this->assertSame('markup', $data['pricing_method']);
-        $this->assertEquals(20, $data['profit']);
-        $this->assertEqualsWithDelta(33.33, $data['profit_margin'], 0.01);
+
+        foreach (['cost_price', 'markup_percentage', 'pricing_method', 'profit', 'profit_margin'] as $field) {
+            $this->assertArrayNotHasKey($field, $data);
+        }
     }
 }

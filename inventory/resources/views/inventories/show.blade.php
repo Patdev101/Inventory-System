@@ -261,10 +261,10 @@
 
             </div>
 
-            @if ($inventory->product?->code)
+            @if ($inventory->product?->sku)
 
                 <div class="summary-subtitle">
-                    {{ $inventory->product->code }}
+                    {{ $inventory->product->sku }}
                 </div>
 
             @endif
@@ -486,9 +486,9 @@
 
                     {{ $inventory->product?->name ?? '-' }}
 
-                    @if ($inventory->product?->code)
+                    @if ($inventory->product?->sku)
 
-                        ({{ $inventory->product->code }})
+                        ({{ $inventory->product->sku }})
 
                     @endif
 

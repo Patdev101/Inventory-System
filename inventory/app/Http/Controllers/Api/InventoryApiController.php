@@ -10,6 +10,7 @@ use App\Models\ProductUnit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class InventoryApiController extends Controller
@@ -23,13 +24,13 @@ class InventoryApiController extends Controller
             'product_id' => [
                 'required',
                 'integer',
-                'exists:products,id',
+                Rule::exists('products', 'id')->whereNull('deleted_at'),
             ],
 
             'location_id' => [
                 'required',
                 'integer',
-                'exists:locations,id',
+                Rule::exists('locations', 'id')->whereNull('deleted_at'),
             ],
 
             'product_unit_id' => [
@@ -42,6 +43,7 @@ class InventoryApiController extends Controller
                 'required',
                 'numeric',
                 'gt:0',
+                'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
             ],
 
             'reference' => [
@@ -186,13 +188,13 @@ class InventoryApiController extends Controller
             'product_id' => [
                 'required',
                 'integer',
-                'exists:products,id',
+                Rule::exists('products', 'id')->whereNull('deleted_at'),
             ],
 
             'location_id' => [
                 'required',
                 'integer',
-                'exists:locations,id',
+                Rule::exists('locations', 'id')->whereNull('deleted_at'),
             ],
 
             'product_unit_id' => [
@@ -205,6 +207,7 @@ class InventoryApiController extends Controller
                 'required',
                 'numeric',
                 'gt:0',
+                'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
             ],
 
             'reference' => [

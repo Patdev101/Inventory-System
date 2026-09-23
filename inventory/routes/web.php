@@ -64,7 +64,7 @@ Route::get('/forgot-password', [
 Route::post('/forgot-password', [
     PasswordResetController::class,
     'sendResetLink',
-])->name('password.email');
+])->middleware('throttle:5,1')->name('password.email');
 
 Route::get('/reset-password/{token}', [
     PasswordResetController::class,
@@ -74,7 +74,7 @@ Route::get('/reset-password/{token}', [
 Route::post('/reset-password', [
     PasswordResetController::class,
     'reset',
-])->name('password.update');
+])->middleware('throttle:5,1')->name('password.update');
 
 
 /*
@@ -844,7 +844,7 @@ Route::middleware('auth')->group(function () {
             PurchaseOrderController::class,
             'composeEmail',
         ]
-    )->name('purchase-orders.email.compose');
+    )->middleware('role:admin,manager')->name('purchase-orders.email.compose');
 
     Route::post(
         '/purchase-orders/{purchaseOrder}/email',
@@ -852,7 +852,7 @@ Route::middleware('auth')->group(function () {
             PurchaseOrderController::class,
             'sendEmail',
         ]
-    )->name('purchase-orders.email.send');
+    )->middleware(['role:admin,manager', 'throttle:10,1'])->name('purchase-orders.email.send');
 
 
     /*

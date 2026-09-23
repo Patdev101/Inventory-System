@@ -46,14 +46,14 @@
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Code</th>
+                        <th>SKU</th>
                     </tr>
                 </thead>
                 <tbody>
                 @foreach ($productCategory->products as $product)
                     <tr>
                         <td>{{ $product->name }}</td>
-                        <td>{{ $product->code ?: '-' }}</td>
+                        <td>{{ $product->sku ?: '-' }}</td>
                     </tr>
                 @endforeach
                 </tbody>

@@ -12,6 +12,10 @@ class Inventory extends Model
 {
     use HasFactory;
 
+    // Upper bound for a single stock movement; keeps absurd input from
+    // overflowing the decimal columns (SQL Server raises an error instead).
+    public const MAX_MOVEMENT_QUANTITY = 1000000;
+
     protected $fillable = [
         'product_id',
         'location_id',

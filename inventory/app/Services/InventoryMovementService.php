@@ -104,6 +104,12 @@ class InventoryMovementService
             );
         }
 
+        if ($productId !== (int) $inventory->product_id) {
+            throw ValidationException::withMessages([
+                'product_id' => 'This stock record belongs to a different product.',
+            ]);
+        }
+
         $product = Product::findOrFail($productId);
 
         if (!$product->is_active && $movementType === 'in') {

@@ -122,7 +122,8 @@ class StockAlertServiceTest extends TestCase
         $service->acknowledge($alert, $admin->id);
 
         $this->assertSame('acknowledged', $alert->fresh()->status);
-        $this->assertSame($admin->id, $alert->fresh()->acknowledged_by);
+        // SQL Server returns foreign keys as strings.
+        $this->assertSame($admin->id, (int) $alert->fresh()->acknowledged_by);
     }
 
     public function test_resolve_marks_active_alerts_resolved(): void

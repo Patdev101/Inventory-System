@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\InventoryMovementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class InventoryTransferController extends Controller
 {
@@ -235,13 +236,7 @@ class InventoryTransferController extends Controller
             'receiver_id' => [
                 'required',
                 'integer',
-                'exists:users,id',
-            ],
-
-            'receiver_role' => [
-                'required',
-                'string',
-                'in:admin,manager,staff',
+                Rule::exists('users', 'id')->where('is_active', true),
             ],
 
             'items' => [
@@ -266,6 +261,7 @@ class InventoryTransferController extends Controller
                 'required',
                 'numeric',
                 'gt:0',
+                'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
             ],
 
             'reference' => [
@@ -280,6 +276,8 @@ class InventoryTransferController extends Controller
             ],
         ]);
 
+        $receiverRole = User::whereKey($validated['receiver_id'])->value('role');
+
         foreach ($validated['items'] as $item) {
             $this->movementService->initiateTransfer(
                 sourceInventoryId: (int) $item['source_inventory_id'],
@@ -287,7 +285,7 @@ class InventoryTransferController extends Controller
                 productUnitId: (int) $item['product_unit_id'],
                 quantity: (float) $item['quantity'],
                 receiverId: (int) $validated['receiver_id'],
-                receiverRole: $validated['receiver_role'],
+                receiverRole: $receiverRole,
                 reference: $validated['reference'] ?? null,
                 notes: $validated['notes'] ?? null
             );

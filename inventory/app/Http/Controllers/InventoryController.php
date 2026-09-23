@@ -13,6 +13,7 @@ use App\Notifications\StockMovementRequestSubmitted;
 use App\Services\InventoryMovementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
@@ -116,26 +117,29 @@ public function store(Request $request)
         'product_id' => [
             'required',
             'integer',
-            'exists:products,id',
+            Rule::exists('products', 'id')->whereNull('deleted_at'),
         ],
 
         'location_id' => [
             'required',
             'integer',
-            'exists:locations,id',
+            Rule::exists('locations', 'id')->whereNull('deleted_at'),
         ],
 
         'product_unit_id' => [
             'required',
             'integer',
-            'exists:product_units,id',
+            Rule::exists('product_units', 'id')->where('product_id', (int) $request->input('product_id')),
         ],
 
         'quantity' => [
             'required',
             'numeric',
             'gt:0',
+            'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
         ],
+    ], [
+        'product_unit_id.exists' => 'The selected unit does not belong to this product.',
     ]);
 
     $this->assertProductAndLocationShareCompany(
@@ -247,14 +251,17 @@ public function edit(Inventory $inventory)
         'productUnit.unitOfMeasure',
     ]);
 
-    $products = Product::with(
-        'productUnits.unitOfMeasure'
-    )
-        ->orderBy('name')
+    // A stock record's product and location never change; only its
+    // own product/location are offered so the form can't redirect a
+    // movement onto a different product or location.
+    $products = Product::withTrashed()
+        ->with('productUnits.unitOfMeasure')
+        ->whereKey($inventory->product_id)
         ->get();
 
-    $locations = Location::with('company')
-        ->orderBy('name')
+    $locations = Location::withTrashed()
+        ->with('company')
+        ->whereKey($inventory->location_id)
         ->get();
 
     return view(
@@ -278,22 +285,10 @@ public function update(
     Inventory $inventory
 ) {
     $validated = $request->validate([
-        'product_id' => [
-            'required',
-            'integer',
-            'exists:products,id',
-        ],
-
-        'location_id' => [
-            'required',
-            'integer',
-            'exists:locations,id',
-        ],
-
         'product_unit_id' => [
             'required',
             'integer',
-            'exists:product_units,id',
+            Rule::exists('product_units', 'id')->where('product_id', $inventory->product_id),
         ],
 
         'movement_type' => [
@@ -305,8 +300,16 @@ public function update(
             'required',
             'numeric',
             'gt:0',
+            'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
         ],
+    ], [
+        'product_unit_id.exists' => 'The selected unit does not belong to this product.',
     ]);
+
+    // A stock record's product and location are fixed; never take them
+    // from the request.
+    $validated['product_id'] = (int) $inventory->product_id;
+    $validated['location_id'] = (int) $inventory->location_id;
 
     if ($request->user()?->hasRole(User::ROLE_STAFF)) {
         $stockMovementRequest = StockMovementRequest::create([
@@ -328,34 +331,6 @@ public function update(
                 'success',
                 'Stock movement submitted for manager approval.'
             );
-    }
-
-    /*
-     * Product + location identifies an inventory record. Staff
-     * requests skip this check since it is re-validated at approval
-     * time against whatever the inventory looks like then.
-     */
-    $duplicate = Inventory::where(
-        'product_id',
-        $validated['product_id']
-    )
-        ->where(
-            'location_id',
-            $validated['location_id']
-        )
-        ->where(
-            'id',
-            '!=',
-            $inventory->id
-        )
-        ->exists();
-
-    if ($duplicate) {
-        throw ValidationException::withMessages([
-            'product_id' =>
-                'Inventory already exists for this product and location. '
-                . 'Edit the existing inventory instead.',
-        ]);
     }
 
     $inventory = $this->movementService->moveStock(

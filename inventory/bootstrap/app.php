@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         ]);
 
+        // Logs out every other session of a user once their password changes
+        // (email reset, admin reset, or their own change).
+        $middleware->appendToGroup('web', \Illuminate\Session\Middleware\AuthenticateSession::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureAccountIsActive::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureNoForcedPasswordChange::class);
     })

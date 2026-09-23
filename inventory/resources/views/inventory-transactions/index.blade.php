@@ -463,8 +463,8 @@
                             >
                                 {{ $product->name }}
 
-                                @if ($product->code)
-                                    ({{ $product->code }})
+                                @if ($product->sku)
+                                    ({{ $product->sku }})
                                 @endif
 
                             </option>
@@ -692,8 +692,8 @@
 
                                     {{ $transaction->product->name }}
 
-                                    @if ($transaction->product->code)
-                                        ({{ $transaction->product->code }})
+                                    @if ($transaction->product->sku)
+                                        ({{ $transaction->product->sku }})
                                     @endif
 
                                 @else

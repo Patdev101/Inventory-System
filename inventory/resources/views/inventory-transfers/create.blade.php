@@ -91,7 +91,7 @@
         ========================== --}}
         <div
             class="form-group"
-            style="margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"
+            style="margin-bottom: 24px; max-width: 560px;"
         >
             <div>
                 <label
@@ -126,51 +126,6 @@
                 >
                     This person will inspect and confirm the transferred stock
                     before it's added to the destination.
-                </small>
-            </div>
-
-            <div>
-                <label
-                    for="receiver_role"
-                    style="font-weight: bold; display: block; margin-bottom: 6px;"
-                >
-                    Receiver Role <span style="color: red;">*</span>
-                </label>
-
-                <select
-                    id="receiver_role"
-                    name="receiver_role"
-                    required
-                    style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"
-                >
-                    <option value="">-- Select Role --</option>
-
-                    <option
-                        value="admin"
-                        {{ old('receiver_role') == 'admin' ? 'selected' : '' }}
-                    >
-                        Admin
-                    </option>
-
-                    <option
-                        value="manager"
-                        {{ old('receiver_role') == 'manager' ? 'selected' : '' }}
-                    >
-                        Manager
-                    </option>
-
-                    <option
-                        value="staff"
-                        {{ old('receiver_role') == 'staff' ? 'selected' : '' }}
-                    >
-                        Staff
-                    </option>
-                </select>
-
-                <small
-                    style="display: block; margin-top: 6px; color: #64748b;"
-                >
-                    Auto-fills based on the selected receiver.
                 </small>
             </div>
         </div>
@@ -553,12 +508,6 @@ document.addEventListener('DOMContentLoaded', function () {
         Array.from(
             document.querySelectorAll('.checklist-row')
         );
-
-    const receiverSelect =
-        document.getElementById('receiver_id');
-
-    const receiverRoleSelect =
-        document.getElementById('receiver_role');
 
     const pageInfo =
         document.getElementById('checklist-page-info');
@@ -1389,41 +1338,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         }
     );
-
-
-    /* =========================
-       RECEIVER ROLE AUTO-FILL
-    ========================== */
-
-    if (
-        receiverSelect &&
-        receiverRoleSelect
-    ) {
-
-        receiverSelect.addEventListener(
-            'change',
-            function () {
-
-                const selectedOption =
-                    receiverSelect.options[
-                        receiverSelect.selectedIndex
-                    ];
-
-
-                const role =
-                    selectedOption
-                        ? selectedOption.dataset.role
-                        : '';
-
-
-                if (role) {
-
-                    receiverRoleSelect.value =
-                        role;
-                }
-            }
-        );
-    }
 
 
     /* =========================

@@ -53,9 +53,9 @@ class PasswordResetController extends Controller
                 $user->must_change_password = false;
                 $user->save();
 
-                // A password reset via a (possibly leaked) email link should
-                // invalidate any session/token that predates it, same as an
-                // admin-driven reset already does.
+                // Existing browser sessions are logged out by the
+                // AuthenticateSession middleware once the password changes;
+                // API tokens are revoked here.
                 $user->tokens()->delete();
 
                 $auditLogger->passwordResetViaEmailLink($user);

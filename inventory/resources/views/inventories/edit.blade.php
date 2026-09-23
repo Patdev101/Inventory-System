@@ -252,9 +252,9 @@
 
                 {{ $inventory->product ? $inventory->product->name : '-' }}
 
-                @if ($inventory->product && $inventory->product->code)
+                @if ($inventory->product && $inventory->product->sku)
 
-                    ({{ $inventory->product->code }})
+                    ({{ $inventory->product->sku }})
 
                 @endif
 
@@ -348,10 +348,10 @@
                     <td>
 
                         <select
-                            name="product_id"
                             id="product_id"
                             class="form-control"
-                            required
+                            disabled
+                            title="Fixed for this stock record"
                         >
 
                             <option value="">
@@ -374,9 +374,9 @@
 
                                     {{ $product->name }}
 
-                                    @if ($product->code)
+                                    @if ($product->sku)
 
-                                        ({{ $product->code }})
+                                        ({{ $product->sku }})
 
                                     @endif
 
@@ -402,10 +402,10 @@
                     <td>
 
                         <select
-                            name="location_id"
                             id="location_id"
                             class="form-control"
-                            required
+                            disabled
+                            title="Fixed for this stock record"
                         >
 
                             <option value="">

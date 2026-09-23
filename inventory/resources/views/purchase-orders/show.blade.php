@@ -717,7 +717,9 @@
             The intended flow is: submit -> approve -> email the supplier
             to place the order -> mark as ordered -> receive.
         --}}
-        @if (in_array($purchaseOrder->status, ['approved', 'ordered', 'partially_received', 'completed', 'received'], true))
+        {{-- While approved, the action area below already has the email button. --}}
+        @if (in_array($purchaseOrder->status, ['ordered', 'partially_received', 'completed', 'received'], true)
+            && auth()->user()->hasRole('admin', 'manager'))
             <a href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}" class="po-btn po-btn-primary">
                 Send Email
             </a>
@@ -1377,30 +1379,34 @@
 
                 @if (!$lastEmail)
 
-                    <a
-                        href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}"
-                        class="po-btn po-btn-primary"
-                    >
-                        Send Email to Supplier
-                    </a>
+                    @if (auth()->user()->hasRole('admin', 'manager'))
+                        <a
+                            href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}"
+                            class="po-btn po-btn-primary"
+                        >
+                            Send Email to Supplier
+                        </a>
+                    @endif
 
                     <button
                         type="button"
                         class="po-btn po-btn-secondary"
                         disabled
-                        title="Email the supplier first — this unlocks once it's sent."
+                        title="{{ auth()->user()->hasRole('admin', 'manager') ? 'Email the supplier first — this unlocks once it\'s sent.' : 'A manager must email the supplier first — this unlocks once it\'s sent.' }}"
                     >
                         Mark as Ordered
                     </button>
 
                 @else
 
-                    <a
-                        href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}"
-                        class="po-btn po-btn-secondary"
-                    >
-                        Resend Email
-                    </a>
+                    @if (auth()->user()->hasRole('admin', 'manager'))
+                        <a
+                            href="{{ route('purchase-orders.email.compose', $purchaseOrder) }}"
+                            class="po-btn po-btn-secondary"
+                        >
+                            Resend Email
+                        </a>
+                    @endif
 
                     <form
                         method="POST"

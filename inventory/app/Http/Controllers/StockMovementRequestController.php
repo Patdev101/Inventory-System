@@ -7,6 +7,7 @@ use App\Models\StockMovementRequest;
 use App\Services\InventoryMovementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class StockMovementRequestController extends Controller
@@ -57,13 +58,40 @@ class StockMovementRequestController extends Controller
             403
         );
 
-        if (!$stockMovementRequest->isPending()) {
+        // Lock the request and re-check its status inside the transaction so
+        // a double-click or two reviewers at once can't apply it twice.
+        $applied = DB::transaction(function () use ($request, $stockMovementRequest) {
+            $stockMovementRequest = StockMovementRequest::whereKey($stockMovementRequest->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$stockMovementRequest || !$stockMovementRequest->isPending()) {
+                return false;
+            }
+
+            $this->applyRequest($stockMovementRequest);
+
+            $stockMovementRequest->update([
+                'status' => StockMovementRequest::STATUS_APPROVED,
+                'reviewed_by' => $request->user()->id,
+                'reviewed_at' => now(),
+            ]);
+
+            return true;
+        });
+
+        if (!$applied) {
             return back()->with(
                 'error',
                 'This request has already been reviewed.'
             );
         }
 
+        return back()->with('success', 'Stock movement approved and applied.');
+    }
+
+    private function applyRequest(StockMovementRequest $stockMovementRequest): void
+    {
         if ($stockMovementRequest->isTransfer()) {
             /*
              * The destination might not have had an inventory record at
@@ -111,14 +139,6 @@ class StockMovementRequestController extends Controller
                 (float) $stockMovementRequest->quantity
             );
         }
-
-        $stockMovementRequest->update([
-            'status' => StockMovementRequest::STATUS_APPROVED,
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-        ]);
-
-        return back()->with('success', 'Stock movement approved and applied.');
     }
 
     public function reject(
@@ -130,23 +150,35 @@ class StockMovementRequestController extends Controller
             403
         );
 
-        if (!$stockMovementRequest->isPending()) {
+        $validated = $request->validate([
+            'rejection_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $rejected = DB::transaction(function () use ($request, $stockMovementRequest, $validated) {
+            $locked = StockMovementRequest::whereKey($stockMovementRequest->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$locked || !$locked->isPending()) {
+                return false;
+            }
+
+            $locked->update([
+                'status' => StockMovementRequest::STATUS_REJECTED,
+                'rejection_reason' => $validated['rejection_reason'] ?? null,
+                'reviewed_by' => $request->user()->id,
+                'reviewed_at' => now(),
+            ]);
+
+            return true;
+        });
+
+        if (!$rejected) {
             return back()->with(
                 'error',
                 'This request has already been reviewed.'
             );
         }
-
-        $validated = $request->validate([
-            'rejection_reason' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $stockMovementRequest->update([
-            'status' => StockMovementRequest::STATUS_REJECTED,
-            'rejection_reason' => $validated['rejection_reason'] ?? null,
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-        ]);
 
         return back()->with('success', 'Stock movement request rejected.');
     }

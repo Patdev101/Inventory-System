@@ -191,6 +191,20 @@ class ReportController extends Controller
      * first — rows are written to the output buffer as they're read.
      * Exports the full filtered result set, not just the current page.
      */
+    /**
+     * Prefix text that a spreadsheet would treat as a formula so values like
+     * a product named "=HYPERLINK(...)" open as plain text in Excel.
+     */
+    private function csvSafe(mixed $value): mixed
+    {
+        if (is_string($value) && $value !== '' && !is_numeric($value)
+            && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'" . $value;
+        }
+
+        return $value;
+    }
+
     private function streamCsv(string $filename, array $headers, iterable $rows, callable $mapRow): StreamedResponse
     {
         $callback = function () use ($headers, $rows, $mapRow) {
@@ -200,7 +214,7 @@ class ReportController extends Controller
             fputcsv($handle, $headers);
 
             foreach ($rows as $row) {
-                fputcsv($handle, $mapRow($row));
+                fputcsv($handle, array_map([$this, 'csvSafe'], $mapRow($row)));
             }
 
             fclose($handle);
