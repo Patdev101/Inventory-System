@@ -248,14 +248,14 @@ class UserController extends Controller
 
     /**
      * Roles the acting user is allowed to assign when creating an
-     * account. Admins may create managers and staff; managers may
-     * only create staff. This is the server-side source of truth —
+     * account. Admins may create admins, managers and staff; managers
+     * may only create staff. This is the server-side source of truth —
      * the create form's role options are driven by the same list.
      */
     private function assignableRoles(User $actingUser): array
     {
         if ($actingUser->isAdmin()) {
-            return [User::ROLE_MANAGER, User::ROLE_STAFF];
+            return [User::ROLE_ADMIN, User::ROLE_MANAGER, User::ROLE_STAFF];
         }
 
         if ($actingUser->isManager()) {

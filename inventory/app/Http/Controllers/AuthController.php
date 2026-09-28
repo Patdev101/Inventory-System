@@ -15,8 +15,12 @@ class AuthController extends Controller
     protected const MAX_ATTEMPTS = 5;
     protected const DECAY_SECONDS = 60;
 
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
+        if (!SetupController::isComplete()) {
+            return redirect()->route('setup.create');
+        }
+
         return view('auth.login');
     }
 

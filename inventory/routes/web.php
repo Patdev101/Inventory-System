@@ -16,6 +16,7 @@ use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SetupController;
 use App\Http\Controllers\StockAlertController;
 use App\Http\Controllers\StockMovementRequestController;
 use App\Http\Controllers\SupplierController;
@@ -33,6 +34,22 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->route('dashboard');
 });
+
+/*
+|--------------------------------------------------------------------------
+| First-run Setup (404s once an admin exists)
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/setup', [
+    SetupController::class,
+    'create',
+])->middleware('guest')->name('setup.create');
+
+Route::post('/setup', [
+    SetupController::class,
+    'store',
+])->middleware(['guest', 'throttle:5,1'])->name('setup.store');
 
 Route::get('/login', [
     AuthController::class,
