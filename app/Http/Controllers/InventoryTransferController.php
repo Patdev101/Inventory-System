@@ -1,0 +1,433 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Inventory;
+use App\Models\InventoryTransfer;
+use App\Models\Location;
+use App\Models\User;
+use App\Services\InventoryMovementService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+
+class InventoryTransferController extends Controller
+{
+    public function __construct(
+        private readonly InventoryMovementService $movementService
+    ) {
+    }
+
+    /**
+     * Show transfer history.
+     */
+    public function index(Request $request)
+    {
+        $search = trim((string) $request->input('search'));
+
+        $sort = $request->input('sort', 'created_at');
+
+        $direction = strtolower(
+            (string) $request->input('direction', 'desc')
+        ) === 'asc'
+            ? 'asc'
+            : 'desc';
+
+        $sortable = [
+            'created_at'    => 'inventory_transfers.created_at',
+            'from_location' => 'source_locations.name',
+            'to_location'   => 'destination_locations.name',
+        ];
+
+        $sortColumn = $sortable[$sort] ?? $sortable['created_at'];
+
+        $transfers = InventoryTransfer::query()
+            ->select('inventory_transfers.*')
+            ->with([
+                'product',
+                'sourceInventory.location',
+                'destinationInventory.location',
+                'productUnit.unitOfMeasure',
+                'receiver',
+            ])
+            ->leftJoin(
+                'inventories as source_inventories',
+                'source_inventories.id',
+                '=',
+                'inventory_transfers.source_inventory_id'
+            )
+            ->leftJoin(
+                'locations as source_locations',
+                'source_locations.id',
+                '=',
+                'source_inventories.location_id'
+            )
+            ->leftJoin(
+                'inventories as destination_inventories',
+                'destination_inventories.id',
+                '=',
+                'inventory_transfers.destination_inventory_id'
+            )
+            ->leftJoin(
+                'locations as destination_locations',
+                'destination_locations.id',
+                '=',
+                'destination_inventories.location_id'
+            )
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+
+                    $query->where(
+                        'inventory_transfers.reference',
+                        'like',
+                        '%' . $search . '%'
+                    )
+
+                    ->orWhere(
+                        'inventory_transfers.notes',
+                        'like',
+                        '%' . $search . '%'
+                    )
+
+                    ->orWhereHas(
+                        'product',
+                        function ($query) use ($search) {
+                            $query->where(
+                                'name',
+                                'like',
+                                '%' . $search . '%'
+                            );
+                        }
+                    )
+
+                    ->orWhere(
+                        'source_locations.name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+
+                    ->orWhere(
+                        'source_locations.code',
+                        'like',
+                        '%' . $search . '%'
+                    )
+
+                    ->orWhere(
+                        'destination_locations.name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+
+                    ->orWhere(
+                        'destination_locations.code',
+                        'like',
+                        '%' . $search . '%'
+                    );
+                });
+            })
+            ->orderBy($sortColumn, $direction)
+            ->paginate(10)
+            ->withQueryString();
+
+        return view(
+            'inventory-transfers.index',
+            compact(
+                'transfers',
+                'search',
+                'sort',
+                'direction'
+            )
+        );
+    }
+
+    /**
+     * Transfers assigned to the current user that are still awaiting
+     * audit or receipt.
+     */
+    public function pendingAudits(Request $request)
+    {
+        $transfers = InventoryTransfer::with([
+            'product',
+            'sourceInventory.location',
+            'destinationInventory.location',
+            'productUnit.unitOfMeasure',
+        ])
+            ->where('receiver_id', Auth::id())
+            ->where('status', 'pending')
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view(
+            'inventory-transfers.pending',
+            compact('transfers')
+        );
+    }
+
+    /**
+     * Show the transfer form.
+     */
+    public function create()
+    {
+        $inventories = Inventory::with([
+            'product',
+            'product.productUnits.unitOfMeasure',
+            'location',
+            'productUnit.unitOfMeasure',
+        ])
+            ->where('base_quantity', '>', 0)
+            ->orderBy('id')
+            ->get();
+
+        $locations = Location::with('company')
+            ->orderBy('name')
+            ->get();
+
+        $receivers = User::orderBy('name')->get();
+
+        return view(
+            'inventory-transfers.create',
+            compact(
+                'inventories',
+                'locations',
+                'receivers'
+            )
+        );
+    }
+
+    /**
+     * Show a single inventory transfer.
+     */
+    public function show(InventoryTransfer $transfer)
+    {
+        $transfer->load([
+            'product',
+            'productUnit.unitOfMeasure',
+            'sourceInventory.product',
+            'sourceInventory.location',
+            'sourceInventory.productUnit.unitOfMeasure',
+            'destinationInventory.product',
+            'destinationInventory.location',
+            'destinationInventory.productUnit.unitOfMeasure',
+            'receiver',
+            'auditedBy',
+            'receivedBy',
+            'receipts',
+        ]);
+
+        return view(
+            'inventory-transfers.show',
+            compact('transfer')
+        );
+    }
+
+    /**
+     * Create pending transfers awaiting receiver audit.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'destination_location_id' => [
+                'required',
+                'integer',
+                'exists:locations,id',
+            ],
+
+            'receiver_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where('is_active', true),
+            ],
+
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'items.*.source_inventory_id' => [
+                'required',
+                'integer',
+                'exists:inventories,id',
+            ],
+
+            'items.*.product_unit_id' => [
+                'required',
+                'integer',
+                'exists:product_units,id',
+            ],
+
+            'items.*.quantity' => [
+                'required',
+                'numeric',
+                'gt:0',
+                'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
+            ],
+
+            'reference' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'notes' => [
+                'nullable',
+                'string',
+            ],
+        ]);
+
+        $receiverRole = User::whereKey($validated['receiver_id'])->value('role');
+
+        foreach ($validated['items'] as $item) {
+            $this->movementService->initiateTransfer(
+                sourceInventoryId: (int) $item['source_inventory_id'],
+                destinationLocationId: (int) $validated['destination_location_id'],
+                productUnitId: (int) $item['product_unit_id'],
+                quantity: (float) $item['quantity'],
+                receiverId: (int) $validated['receiver_id'],
+                receiverRole: $receiverRole,
+                reference: $validated['reference'] ?? null,
+                notes: $validated['notes'] ?? null
+            );
+        }
+
+        return redirect()
+            ->route('inventory-transfers.index')
+            ->with(
+                'success',
+                count($validated['items'])
+                . ' transfer(s) created and stock deducted from source. Awaiting receiver audit.'
+            );
+    }
+
+    /**
+     * Receiver inspects the transferred item and marks pass/fail.
+     */
+    public function audit(
+        Request $request,
+        InventoryTransfer $transfer
+    ) {
+        if ($transfer->status !== 'pending') {
+            return back()->with(
+                'error',
+                'This transfer is not awaiting audit.'
+            );
+        }
+
+        if ((int) $transfer->receiver_id !== (int) Auth::id()) {
+            abort(
+                403,
+                'Only the assigned receiver can audit this transfer.'
+            );
+        }
+
+        $validated = $request->validate([
+            'result' => [
+                'required',
+                'string',
+                'in:pass,fail',
+            ],
+
+            'audit_notes' => [
+                'nullable',
+                'string',
+            ],
+        ]);
+
+        if ($validated['result'] === 'fail') {
+            $this->movementService->reverseTransfer(
+                transfer: $transfer,
+                auditedByUserId: (int) Auth::id(),
+                auditNotes: $validated['audit_notes'] ?? null
+            );
+
+            return back()->with(
+                'success',
+                'Transfer marked as failed audit. Stock has been returned to the source location.'
+            );
+        }
+
+        $transfer->update([
+            'audit_status' => 'passed',
+            'audited_by' => Auth::id(),
+            'audited_at' => now(),
+            'audit_notes' => $validated['audit_notes'] ?? null,
+        ]);
+
+        return back()->with(
+            'success',
+            'Item passed audit. You can now enter the quantity actually received.'
+        );
+    }
+
+    /**
+     * Record the quantity actually received.
+     *
+     * A receiver may receive the complete quantity or only part of it.
+     *
+     * Example:
+     * Sent:     100 pcs
+     * Received:  70 pcs
+     *
+     * The destination receives 70 pcs and the transfer remains pending
+     * for the remaining 30 pcs.
+     */
+    public function receive(
+        Request $request,
+        InventoryTransfer $transfer
+    ) {
+        if ((int) $transfer->receiver_id !== (int) Auth::id()) {
+            abort(
+                403,
+                'Only the assigned receiver can receive this transfer.'
+            );
+        }
+
+        if ($transfer->status !== 'pending') {
+            return back()->with(
+                'error',
+                'This transfer is no longer awaiting receipt.'
+            );
+        }
+
+        if ($transfer->audit_status !== 'passed') {
+            return back()->with(
+                'error',
+                'This transfer must pass audit before it can be received.'
+            );
+        }
+
+        $remainingQuantity = max(
+            0,
+            (float) $transfer->quantity
+            - (float) $transfer->received_quantity
+        );
+
+        if ($remainingQuantity <= 0) {
+            return back()->with(
+                'error',
+                'There is no remaining quantity to receive.'
+            );
+        }
+
+        $validated = $request->validate([
+            'received_quantity' => [
+                'required',
+                'numeric',
+                'gt:0',
+                'lte:' . $remainingQuantity,
+            ],
+        ]);
+
+        $this->movementService->completeTransferReceipt(
+            transfer: $transfer,
+            receivedByUserId: (int) Auth::id(),
+            receivedQuantity: (float) $validated['received_quantity']
+        );
+
+        return back()->with(
+            'success',
+            'Received quantity recorded successfully.'
+        );
+    }
+}
