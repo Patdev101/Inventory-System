@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\UserAccessScope('self'));
+    }
+
     use HasFactory;
     use \App\Models\Concerns\UppercasesAttributes;
     use SoftDeletes;

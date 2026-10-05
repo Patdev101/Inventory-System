@@ -47,6 +47,8 @@ class User extends Authenticatable
         'role',
         'is_active',
         'must_change_password',
+        'company_id',
+        'location_id',
     ];
 
     /**
@@ -87,5 +89,11 @@ class User extends Authenticatable
     public function isManager(): bool
     {
         return $this->hasRole(self::ROLE_MANAGER);
+    }
+
+    /** The location this user works at (admins may have none). */
+    public function assignedLocation(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'location_id')->withoutGlobalScopes()->withTrashed();
     }
 }

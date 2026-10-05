@@ -26,9 +26,10 @@ class StockAlertService
     {
         $created = 0;
 
-        Inventory::with('product')->chunkById(200, function ($inventories) use (&$created, $notify) {
+        // The check always covers every location, whoever opens the page.
+        Inventory::withoutGlobalScopes()->with(['product' => fn ($q) => $q->withoutGlobalScopes()])->chunkById(200, function ($inventories) use (&$created, $notify) {
             // One query for the whole chunk instead of one per stock record.
-            $activeAlerts = StockAlert::active()
+            $activeAlerts = StockAlert::withoutGlobalScopes()->active()
                 ->whereIn('inventory_id', $inventories->modelKeys())
                 ->orderBy('id')
                 ->get()

@@ -9,6 +9,67 @@
 
 ---
 
+## READ FIRST — Handover update, 2026-10-05 (everything since 2026-09-18)
+
+> Newer than every section below it. Where an older section disagrees with this one, **this one is correct**. Companion file: `POS/SYSTEM_DOCUMENTATION.md`.
+
+### A. Where things are now (corrections to older sections)
+
+| Item | Now |
+|---|---|
+| Code location | `C:\Users\Temp\Documents\GitHub\Inventory-System` — **the repo root is the app**. The stale `inventory/` subfolder was deleted on 2026-10-05 (older sections that say `c:\projects\shogun\inventory` are out of date) |
+| Port | `8001` (`php artisan serve --port=8001`) |
+| Database | SQL Server `inventory_DB` on `.\SQLEXPRESS`; tests use in-memory SQLite |
+| Tests | **174 passing** (`php artisan test`). `phpunit.xml` sets `INVENTORY_RESTRICT_USERS_TO_LOCATION=false` so older tests run un-scoped; `tests/Feature/LocationAccessTest.php` turns it on |
+| Front-end build | `public/build` is **not** tracked: run `npm run build` on every deploy |
+| Autoload | Controller folder is `app/Http/Controllers/Api/` (case matters on Linux). `composer dump-autoload --optimize --strict-psr` must exit 0 |
+| Password reset | Real email reset exists (Section 18, 2026-09-18) — the "don't reintroduce email-based reset" line in Section 16 is **obsolete** |
+
+New migrations since 2026-09-18 (run `php artisan migrate --force`): `2026_09_23_000000_make_products_sku_unique_index_ignore_nulls`, `2026_10_05_000000_install_default_units_and_uppercase_setup_data`, `2026_10_05_000100_turn_off_sql_server_auto_close`, `2026_10_06_000000_add_company_and_location_to_users_table`.
+
+### B. Every user works at one company and location (new — most important change)
+
+**Rule:** staff and managers only see and change data for **their own location**; they can *see* the other locations of **their own company** only to pick a transfer destination; another company does not exist for them. **Admins are unrestricted.** A staff/manager account with **no location sees nothing** and gets a banner until an admin assigns one.
+
+How it works:
+- `users.company_id`, `users.location_id` (plain indexed columns, no FK — SQL Server cascade-path rule). Admin picks them on Users → Create/Edit; a manager creating staff is forced to the manager's own location; admin must choose a location for staff/managers (validation error otherwise). `UserController::resolveAssignment()` derives the company from the location.
+- `config/access.php` → `restrict_users_to_location` (env `INVENTORY_RESTRICT_USERS_TO_LOCATION`, default **true**). Turn off for a single-location business.
+- `App\Support\UserAccess` — `restricted()`, `locationId()`, `companyId()`, `assertLocation()`, `assertCompany()`, and `unscoped(callable)` (a counter-based bypass).
+- `App\Models\Scopes\UserAccessScope` (global scope, registered in each model's `booted()`). Modes: `location` → Inventory, InventoryTransaction, PurchaseOrder; `company` → Location, Product, Supplier; `self` → Company; `inventory` → StockAlert (via its inventory row); `transfer` → InventoryTransfer (source **or** destination inside the user's location); `request` → StockMovementRequest (location or destination). The scope does nothing for admins, for the POS API (no signed-in user), or console/queue. Because it is global, lists, reports, dashboard counters and route-model binding are all covered (out-of-scope id → **404**).
+- **Write guards** (an `exists:` rule bypasses scopes, so these are explicit): `InventoryController::store` (own location only → 403), `PurchaseOrderController::store` (own location → 403; supplier/products are scoped lookups), `InventoryTransferController::store` (sources must be stock at the user's own location → 403; destination must be in the user's company → 403; receiver must be an admin or work at the destination), `InventoryController::requestTransfer`.
+- **Where the bypass `UserAccess::unscoped()` is allowed** — only after authorisation, because a transfer genuinely touches another location's stock row: `InventoryTransferController` (initiate/audit/receive), `StockMovementRequestController::approve`, `InventoryController::requestTransfer`. `InventoryTransfer::sourceInventory()/destinationInventory()` relations ignore the scope so both sides of a transfer render.
+- `StockAlertService::synchronize()` runs with `withoutGlobalScopes()` so alerts always cover **every** location no matter who opens the dashboard (otherwise the 60-second freshness cache would let one location's user hide another's alerts).
+- Decisions to keep or consciously change: admins are unrestricted; sibling locations are *visible by name* (needed for transfers); products/suppliers are scoped by **company**, stock/orders/requests by **location**.
+- Known gap: the POS API (`/api/products`, `/api/inventory/in|out`) is unscoped by design (token auth, no user) — the POS enforces who can sell where.
+
+### C. QA fixes 2026-10-02 (all have regression tests in `tests/Feature/QaRegressionTest.php`)
+
+`Api` folder case; edit-inventory form can no longer change product/location/unit (fields locked; product and location come from the stock row; unit must belong to the product; deactivated products can't be re-stocked); stock request approve/reject is locked + idempotent (`lockForUpdate`); password change/reset logs out other sessions (`AuthenticateSession` in the web group); rate limits (forgot/reset password 5/min, PO email 10/min); **PO emailing is admin/manager only**; POS API no longer exposes cost/markup/profit; API rejects deleted locations/products and quantities above `Inventory::MAX_MOVEMENT_QUANTITY` (1,000,000); CSV exports neutralise formula cells; `products.sku` uses a filtered unique index; Receiver Role dropdown removed from Transfer (the role is read from the receiver's account).
+
+### D. QA fixes 2026-10-05
+
+- **Units of measure are built in**: `App\Support\DefaultUnits` (36 units with family + size) installed by migration and by `UnitOfMeasureSeeder`. A fresh system never has an empty unit list.
+- **Suggested units** on the product form (`resources/views/products/_unit-suggestions.blade.php`, included by create and edit): after the base unit is chosen, convertible units are offered with the conversion filled in (dozen = 12 piece, kg = 1000 g); packaging units (box/case/pack…) ask for the quantity.
+- **Uppercase set-up data**: `App\Models\Concerns\UppercasesAttributes` on Company, Location, ProductCategory, UnitOfMeasure, Supplier (name/code) and Product (name/sku/item_code); the migration capitalised existing rows; the layout JS capitalises as you type on the maintenance pages. Tests/fixtures expect uppercase.
+- **No scroll-wheel number fields**: all 24 `type="number"` inputs are now `type="text" inputmode="decimal" data-numeric`; one handler in `layouts/app.blade.php` allows only digits and one decimal point (decimals from `step`, `min`/`max` enforced). Use this attribute for any new numeric field.
+- **Speed**: root cause was SQL Server `AUTO_CLOSE` (migration turns it off); dashboard stock-alert check runs at most once a minute (`StockAlertService::synchronizeIfStale`) and in chunks; sidebar badge counts cached 20 s; product images `loading="lazy"`.
+- **Product form layout**: Base Unit → Pricing → Stock settings → "Product Codes (optional)" (SKU, Barcode, Item Code last). Pricing is compact: cost-calculator collapses into a `<details>`, four fields in one row, and one summary strip (`#pricing-preview`, `#vat-breakdown`, `#unit-pricing-preview`) replaces three info boxes. The JS that fills those ids lives in `products/create|edit.blade.php`.
+
+### E. Rules for the next developer
+
+1. Every stock change still goes through `InventoryMovementService` or `InventoryApiController`.
+2. New data models that belong to a location or company need a `UserAccessScope` mode and a test in `LocationAccessTest`.
+3. A new endpoint that accepts a `location_id`/`company_id` must call `UserAccess::assertLocation()` / `assertCompany()` — validation rules don't apply the scope.
+4. Never wrap unauthorised input in `UserAccess::unscoped()`.
+5. Sidebar counters and dashboards run on every page; keep them cheap or cached.
+
+### F. Suggested next steps
+
+1. Assign locations to the existing manager/staff accounts (after migrating, any non-admin account with no location sees nothing until an admin edits it).
+2. If catalogues grow into the thousands, make the "Create transfer" and "Add stock" forms search-as-you-type instead of loading every product/stock row.
+3. Decide whether the POS API should also enforce location (today the POS does).
+
+---
 ## Setting This Up for the First Time? Read This First
 
 **If you're the business receiving this project (not the intern who built it), start here — this is a one-time setup, not something you need the rest of this document for yet.**

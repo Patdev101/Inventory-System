@@ -28,6 +28,7 @@
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+<th>Location</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -40,6 +41,7 @@
                         <td>{{ $user->name }}</td>
                         <td>{{ $user->email }}</td>
                         <td>{{ ucfirst($user->role) }}</td>
+<td>{{ $user->assignedLocation?->name ?? ($user->isAdmin() ? 'All locations' : 'Not assigned') }}</td>
                         <td>{{ $user->is_active ? 'Active' : 'Deactivated' }}</td>
                         <td>
                             <div class="actions">

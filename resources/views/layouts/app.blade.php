@@ -612,6 +612,12 @@
 
         <div class="container">
 
+            @if (\App\Support\UserAccess::enabled() && auth()->check() && ! auth()->user()->isAdmin() && ! auth()->user()->location_id)
+                <div class="account-no-location" role="alert" style="margin-bottom: 16px; padding: 12px 14px; border-radius: 8px; background: #fef3c7; border: 1px solid #fde68a; color: #92400e;">
+                    Your account isn't assigned to a location yet, so there is nothing for you to see or change. Ask an administrator to assign your company and location.
+                </div>
+            @endif
+
             @yield('content')
 
         </div>

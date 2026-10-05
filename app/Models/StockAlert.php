@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StockAlert extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\UserAccessScope('inventory'));
+    }
+
     use HasFactory;
 
     protected $fillable = [

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventory;
+use App\Support\UserAccess;
 use App\Models\StockMovementRequest;
 use App\Services\InventoryMovementService;
 use Illuminate\Http\RedirectResponse;
@@ -69,7 +70,9 @@ class StockMovementRequestController extends Controller
                 return false;
             }
 
-            $this->applyRequest($stockMovementRequest);
+            // Approving a request can touch another location's stock row (a transfer),
+            // and it was already authorised by the route and the locked request.
+            UserAccess::unscoped(fn () => $this->applyRequest($stockMovementRequest));
 
             $stockMovementRequest->update([
                 'status' => StockMovementRequest::STATUS_APPROVED,

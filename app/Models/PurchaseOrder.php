@@ -10,6 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseOrder extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\UserAccessScope('location'));
+    }
+
     use HasFactory;
 
     public const STATUS_DRAFT = 'draft';

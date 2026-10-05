@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\UserAccessScope('company'));
+    }
+
     use HasFactory;
     use \App\Models\Concerns\UppercasesAttributes;
 

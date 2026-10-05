@@ -63,6 +63,37 @@
             @enderror
         </div>
 
+        @if ($canChooseLocation)
+            <div class="form-group">
+                <label for="location_id">Location</label>
+
+                <select id="location_id" name="location_id">
+                    <option value="">No location (admins only)</option>
+
+                    @foreach ($locations->groupBy(fn ($location) => $location->company?->name ?? 'No company') as $companyName => $companyLocations)
+                        <optgroup label="{{ $companyName }}">
+                            @foreach ($companyLocations as $location)
+                                <option value="{{ $location->id }}" @selected((string) old('location_id', $user->location_id) === (string) $location->id)>
+                                    {{ $location->name }}
+                                </option>
+                            @endforeach
+                        </optgroup>
+                    @endforeach
+                </select>
+
+                <small class="muted">Staff and managers only see and change this location's data. Admins can see everything.</small>
+
+                @error('location_id')
+                    <div class="error">{{ $message }}</div>
+                @enderror
+            </div>
+        @else
+            <div class="form-group">
+                <label>Location</label>
+                <div>{{ $actorLocationName ?? 'Your location' }}</div>
+                <small class="muted">Only an admin can move someone to another location.</small>
+            </div>
+        @endif
         <div class="form-group">
             <label class="checkbox-label" style="display: inline-flex; align-items: center; gap: 7px; font-weight: normal;">
                 <input

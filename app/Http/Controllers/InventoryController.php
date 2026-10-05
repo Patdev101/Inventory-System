@@ -9,6 +9,7 @@ use App\Models\Location;
 use App\Models\Product;
 use App\Models\StockMovementRequest;
 use App\Models\User;
+use App\Support\UserAccess;
 use App\Notifications\StockMovementRequestSubmitted;
 use App\Services\InventoryMovementService;
 use Illuminate\Http\Request;
@@ -141,6 +142,8 @@ public function store(Request $request)
     ], [
         'product_unit_id.exists' => 'The selected unit does not belong to this product.',
     ]);
+
+    UserAccess::assertLocation($validated['location_id']);
 
     $this->assertProductAndLocationShareCompany(
         $validated['product_id'],
@@ -392,9 +395,11 @@ public function requestTransfer(Request $request, Inventory $inventory)
         ]);
     }
 
-    $sourceInventory = Inventory::where('product_id', $inventory->product_id)
+    // The source is another location of the same company (checked just below),
+    // so look it up without the per-location filter.
+    $sourceInventory = UserAccess::unscoped(fn () => Inventory::where('product_id', $inventory->product_id)
         ->where('location_id', $validated['source_location_id'])
-        ->first();
+        ->first());
 
     if (!$sourceInventory || $this->movementService->resolveBaseQuantity($sourceInventory) <= 0) {
         throw ValidationException::withMessages([
@@ -403,7 +408,7 @@ public function requestTransfer(Request $request, Inventory $inventory)
         ]);
     }
 
-    $sourceLocation = Location::with('company')->findOrFail($validated['source_location_id']);
+    $sourceLocation = UserAccess::unscoped(fn () => Location::with('company')->findOrFail($validated['source_location_id']));
 
     if ((int) $sourceLocation->company_id !== (int) $inventory->location->company_id) {
         throw ValidationException::withMessages([
@@ -435,13 +440,13 @@ public function requestTransfer(Request $request, Inventory $inventory)
             );
     }
 
-    $this->movementService->transferStock(
+    UserAccess::unscoped(fn () => $this->movementService->transferStock(
         sourceInventoryId: $sourceInventory->id,
         destinationInventoryId: $inventory->id,
         productUnitId: (int) $validated['product_unit_id'],
         quantity: (float) $validated['quantity'],
         reference: 'Requested transfer to cover low/out-of-stock inventory'
-    );
+    ));
 
     return redirect()
         ->route('inventories.show', $inventory)

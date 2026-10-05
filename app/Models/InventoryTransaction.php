@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryTransaction extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\UserAccessScope('location'));
+    }
+
     use HasFactory;
 
     protected $fillable = [

@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Location;
 use App\Models\User;
+use App\Support\UserAccess;
 use App\Services\AccountAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -25,10 +28,16 @@ class UserController extends Controller
             $query->where('role', User::ROLE_STAFF);
         }
 
+        if (UserAccess::restricted()) {
+            $query->where('location_id', UserAccess::locationId());
+        }
+
         $users = $query
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
+
+        $users->load('assignedLocation');
 
         return view('users.index', compact('users'));
     }
@@ -37,7 +46,7 @@ class UserController extends Controller
     {
         $assignableRoles = $this->assignableRoles($request->user());
 
-        return view('users.create', compact('assignableRoles'));
+        return view('users.create', $this->locationFormData($request->user()) + compact('assignableRoles'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -49,14 +58,17 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'role' => ['required', 'string', 'in:' . implode(',', $assignableRoles)],
+            'location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->whereNull('deleted_at')],
         ]);
+
+        $assignment = $this->resolveAssignment($request->user(), $validated['role'], $validated['location_id'] ?? null);
 
         User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
-        ]);
+        ] + $assignment);
 
         return redirect()
             ->route('users.index')
@@ -107,7 +119,7 @@ class UserController extends Controller
 
         $assignableRoles = $this->roleOptionsForEdit($request->user(), $user);
 
-        return view('users.edit', compact('user', 'assignableRoles'));
+        return view('users.edit', $this->locationFormData($request->user()) + compact('user', 'assignableRoles'));
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -127,7 +139,13 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:150', 'unique:users,email,' . $user->id],
             'role' => ['required', 'string', 'in:' . implode(',', $assignableRoles)],
             'is_active' => ['nullable', 'boolean'],
+            'location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->whereNull('deleted_at')],
         ]);
+
+        // Only an admin can move someone; for a manager the person stays put.
+        $assignment = $request->user()->isAdmin()
+            ? $this->resolveAssignment($request->user(), $validated['role'], $validated['location_id'] ?? null)
+            : [];
 
         $oldEmail = $user->email;
         $oldRole = $user->role;
@@ -141,7 +159,7 @@ class UserController extends Controller
             'email' => $newEmail,
             'role' => $newRole,
             'is_active' => $newIsActive,
-        ]);
+        ] + $assignment);
 
         if ($newEmail !== $oldEmail) {
             $this->auditLogger->emailChangedByAdmin($request->user(), $user, $oldEmail, $newEmail);
@@ -222,7 +240,8 @@ class UserController extends Controller
         }
 
         if ($actingUser->isManager()) {
-            return $target->role === User::ROLE_STAFF;
+            return $target->role === User::ROLE_STAFF
+                && (!UserAccess::enabled() || (int) $target->location_id === (int) $actingUser->location_id);
         }
 
         return false;
@@ -264,4 +283,44 @@ class UserController extends Controller
 
         return [];
     }
-}
+
+    /** Data for the location field on the create/edit forms. */
+    private function locationFormData(User $actor): array
+    {
+        $canChoose = $actor->isAdmin();
+
+        return [
+            'canChooseLocation' => $canChoose,
+            'locations' => $canChoose
+                ? Location::withoutGlobalScopes()->with('company')->orderBy('name')->get()
+                : collect(),
+            'actorLocationName' => $actor->assignedLocation?->name,
+        ];
+    }
+
+    /**
+     * The company and location to store with a user. A manager can only place
+     * people at their own location; an admin picks any. Everyone except an
+     * admin needs a location while location restriction is on.
+     *
+     * @return array{company_id: ?int, location_id: ?int}
+     */
+    private function resolveAssignment(User $actor, string $role, ?int $requestedLocationId): array
+    {
+        $locationId = $actor->isAdmin() ? $requestedLocationId : ($actor->location_id ? (int) $actor->location_id : null);
+
+        if ($locationId === null && $role !== User::ROLE_ADMIN && UserAccess::enabled()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'location_id' => $actor->isAdmin()
+                    ? 'Choose a location. Staff and managers work at one location.'
+                    : 'Your own account has no location yet, so you can\'t add people. Ask an admin to assign you one.',
+            ]);
+        }
+
+        $location = $locationId ? Location::withoutGlobalScopes()->find($locationId) : null;
+
+        return [
+            'company_id' => $location?->company_id,
+            'location_id' => $location?->id,
+        ];
+    }}

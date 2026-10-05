@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventory;
+use App\Support\UserAccess;
 use App\Models\InventoryTransfer;
 use App\Models\Location;
 use App\Models\User;
@@ -276,8 +277,33 @@ class InventoryTransferController extends Controller
             ],
         ]);
 
+        // Sources must be stock at the user's own location, the destination a
+        // location of the user's own company, and the receiver someone who
+        // works at the destination (or an admin).
+        $sourceIds = collect($validated['items'])->pluck('source_inventory_id')->map(fn ($id) => (int) $id)->unique();
+
+        abort_unless(
+            Inventory::whereIn('id', $sourceIds)->count() === $sourceIds->count(),
+            403,
+            'You can only transfer stock from your own location.'
+        );
+
+        $destination = UserAccess::unscoped(fn () => Location::findOrFail($validated['destination_location_id']));
+        UserAccess::assertCompany($destination->company_id);
+
+        if (UserAccess::enabled()) {
+            $receiver = User::findOrFail($validated['receiver_id']);
+
+            if (!$receiver->isAdmin() && (int) $receiver->location_id !== (int) $destination->id) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'receiver_id' => 'The receiver must be an admin or work at the destination location.',
+                ]);
+            }
+        }
+
         $receiverRole = User::whereKey($validated['receiver_id'])->value('role');
 
+        UserAccess::unscoped(function () use ($validated, $receiverRole) {
         foreach ($validated['items'] as $item) {
             $this->movementService->initiateTransfer(
                 sourceInventoryId: (int) $item['source_inventory_id'],
@@ -290,6 +316,7 @@ class InventoryTransferController extends Controller
                 notes: $validated['notes'] ?? null
             );
         }
+        });
 
         return redirect()
             ->route('inventory-transfers.index')
@@ -335,11 +362,11 @@ class InventoryTransferController extends Controller
         ]);
 
         if ($validated['result'] === 'fail') {
-            $this->movementService->reverseTransfer(
+            UserAccess::unscoped(fn () => $this->movementService->reverseTransfer(
                 transfer: $transfer,
                 auditedByUserId: (int) Auth::id(),
                 auditNotes: $validated['audit_notes'] ?? null
-            );
+            ));
 
             return back()->with(
                 'success',
@@ -419,11 +446,11 @@ class InventoryTransferController extends Controller
             ],
         ]);
 
-        $this->movementService->completeTransferReceipt(
+        UserAccess::unscoped(fn () => $this->movementService->completeTransferReceipt(
             transfer: $transfer,
             receivedByUserId: (int) Auth::id(),
             receivedQuantity: (float) $validated['received_quantity']
-        );
+        ));
 
         return back()->with(
             'success',

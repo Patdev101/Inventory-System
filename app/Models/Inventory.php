@@ -10,6 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Inventory extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\UserAccessScope('location'));
+    }
+
     use HasFactory;
 
     // Upper bound for a single stock movement; keeps absurd input from

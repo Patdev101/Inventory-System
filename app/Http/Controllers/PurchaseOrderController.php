@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\PurchaseOrderMail;
 use App\Models\Location;
+use App\Support\UserAccess;
 use App\Models\Product;
 use App\Models\ProductUnit;
 use App\Models\PurchaseOrder;
@@ -241,6 +242,8 @@ class PurchaseOrderController extends Controller
         | Load selected supplier
         |--------------------------------------------------------------------------
         */
+
+        UserAccess::assertLocation($validated['location_id']);
 
         $supplier = Supplier::query()
             ->findOrFail(

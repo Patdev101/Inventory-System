@@ -9,6 +9,11 @@ use App\Models\InventoryTransferReceipt;
 
 class InventoryTransfer extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\UserAccessScope('transfer'));
+    }
+
     use HasFactory;
 
     protected $table = 'inventory_transfers';
@@ -63,7 +68,7 @@ class InventoryTransfer extends Model
         return $this->belongsTo(
             Inventory::class,
             'source_inventory_id'
-        );
+        )->withoutGlobalScopes();
     }
 
     public function destinationInventory(): BelongsTo
@@ -71,7 +76,7 @@ class InventoryTransfer extends Model
         return $this->belongsTo(
             Inventory::class,
             'destination_inventory_id'
-        );
+        )->withoutGlobalScopes();
     }
 
     public function product(): BelongsTo
