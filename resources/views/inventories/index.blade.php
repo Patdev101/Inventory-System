@@ -431,7 +431,7 @@
 
                         @if ($inventory->product?->image_url)
 
-                            <img
+                            <img loading="lazy" decoding="async"
                                 src="{{ $inventory->product->image_url }}"
                                 alt="{{ $inventory->product->name }}"
                                 class="product-thumb"

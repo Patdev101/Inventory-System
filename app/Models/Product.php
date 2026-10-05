@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Storage;
 class Product extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\UppercasesAttributes;
+
+    protected array $uppercase = ['name', 'sku', 'item_code'];
     use SoftDeletes;
 
     public const PRICING_METHOD_MANUAL = 'manual';

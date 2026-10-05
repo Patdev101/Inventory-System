@@ -357,16 +357,21 @@
              * Count transfers assigned to the current user
              * that are still pending.
              */
+            /*
+             * The three badge counts below run on every page, so each is
+             * remembered for 20 seconds instead of hitting the database on
+             * every click.
+             */
+            $badgeTtl = 20;
+
             $pendingAuditsCount = $user
-                ? \App\Models\InventoryTransfer::where(
-                    'receiver_id',
-                    $user->id
+                ? \Illuminate\Support\Facades\Cache::remember(
+                    'nav:pending-audits:' . $user->id,
+                    $badgeTtl,
+                    fn () => \App\Models\InventoryTransfer::where('receiver_id', $user->id)
+                        ->where('status', 'pending')
+                        ->count()
                 )
-                ->where(
-                    'status',
-                    'pending'
-                )
-                ->count()
                 : 0;
 
 
@@ -377,10 +382,11 @@
              * sidebar renders on every page load.
              */
             $stockAlertsCount = $user
-                ? \App\Models\StockAlert::whereIn(
-                    'status',
-                    ['open', 'acknowledged']
-                )->count()
+                ? \Illuminate\Support\Facades\Cache::remember(
+                    'nav:stock-alerts',
+                    $badgeTtl,
+                    fn () => \App\Models\StockAlert::whereIn('status', ['open', 'acknowledged'])->count()
+                )
                 : 0;
 
 
@@ -397,16 +403,20 @@
                 $user &&
                 class_exists(\App\Models\PurchaseOrder::class)
             ) {
-                $purchaseOrdersCount = \App\Models\PurchaseOrder::whereIn(
-                    'status',
-                    [
-                        'draft',
-                        'pending',
-                        'approved',
-                        'ordered',
-                        'partially_received',
-                    ]
-                )->count();
+                $purchaseOrdersCount = \Illuminate\Support\Facades\Cache::remember(
+                    'nav:open-purchase-orders',
+                    $badgeTtl,
+                    fn () => \App\Models\PurchaseOrder::whereIn(
+                        'status',
+                        [
+                            'draft',
+                            'pending',
+                            'approved',
+                            'ordered',
+                            'partially_received',
+                        ]
+                    )->count()
+                );
             }
 
 

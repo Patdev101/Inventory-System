@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class UnitOfMeasure extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\UppercasesAttributes;
     use SoftDeletes;
 
     protected $table = 'units_of_measure';

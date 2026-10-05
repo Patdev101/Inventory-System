@@ -556,7 +556,7 @@
                         </label>
 
                         <input
-                            type="number"
+                            type="text" inputmode="decimal" autocomplete="off" data-numeric
                             id="received_quantity"
                             name="received_quantity"
                             value="{{ old('received_quantity', number_format($remainingQuantity, 4, '.', '')) }}"

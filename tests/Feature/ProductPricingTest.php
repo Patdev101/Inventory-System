@@ -74,7 +74,7 @@ class ProductPricingTest extends TestCase
             ->post(route('products.store'), $payload)
             ->assertRedirect(route('products.index'));
 
-        $product = Product::where('name', 'Test Product')->firstOrFail();
+        $product = Product::where('name', 'TEST PRODUCT')->firstOrFail();
 
         $this->assertSame('manual', $product->pricing_method);
         $this->assertSame('150.00', $product->selling_price);
@@ -99,7 +99,7 @@ class ProductPricingTest extends TestCase
             ->post(route('products.store'), $payload)
             ->assertRedirect(route('products.index'));
 
-        $product = Product::where('name', 'Test Product')->firstOrFail();
+        $product = Product::where('name', 'TEST PRODUCT')->firstOrFail();
 
         $this->assertSame('markup', $product->pricing_method);
         $this->assertSame('125.00', $product->selling_price);

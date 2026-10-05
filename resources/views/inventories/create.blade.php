@@ -113,7 +113,7 @@
             </label>
 
             <input
-                type="number"
+                type="text" inputmode="decimal" autocomplete="off" data-numeric
                 id="quantity"
                 name="quantity"
                 value="{{ old('quantity') }}"

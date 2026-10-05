@@ -45,10 +45,13 @@ trait CreatesInventoryFixtures
 
     protected function makeUnit(array $attributes = []): UnitOfMeasure
     {
-        return UnitOfMeasure::create(array_merge([
+        $attributes = array_merge([
             'name' => 'Kilogram',
             'code' => 'KG-' . uniqid(),
-        ], $attributes));
+        ], $attributes);
+
+        // The standard units (KG, BAG...) are installed by a migration.
+        return UnitOfMeasure::firstOrCreate(['code' => strtoupper($attributes['code'])], $attributes);
     }
 
     protected function makeProduct(

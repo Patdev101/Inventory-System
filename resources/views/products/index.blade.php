@@ -61,7 +61,7 @@
 
                         <td>
                             @if ($product->image_url)
-                                <img
+                                <img loading="lazy" decoding="async"
                                     src="{{ $product->image_url }}"
                                     alt="{{ $product->name }}"
                                     style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;"

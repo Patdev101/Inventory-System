@@ -17,7 +17,7 @@ class DashboardController extends Controller
      */
     public function index(StockAlertService $stockAlertService, Request $request)
     {
-        $stockAlertService->synchronize();
+        $stockAlertService->synchronizeIfStale();
 
         /*
         |--------------------------------------------------------------------------

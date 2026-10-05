@@ -860,7 +860,7 @@
                                     <div style="display:flex; align-items:center; gap:10px;">
 
                                         @if ($item->product?->image_url)
-                                            <img
+                                            <img loading="lazy" decoding="async"
                                                 src="{{ $item->product->image_url }}"
                                                 alt="{{ $item->product->name }}"
                                                 style="width:36px; height:36px; object-fit:cover; border-radius:6px; border:1px solid #e2e8f0; flex-shrink:0;"

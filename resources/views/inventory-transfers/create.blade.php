@@ -335,7 +335,7 @@
                                     style="padding: 12px; vertical-align: top;"
                                 >
                                     <input
-                                        type="number"
+                                        type="text" inputmode="decimal" autocomplete="off" data-numeric
                                         class="quantity-input"
                                         min="0.0001"
                                         step="0.0001"

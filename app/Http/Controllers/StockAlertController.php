@@ -12,7 +12,7 @@ class StockAlertController extends Controller
 {
     public function index(Request $request, StockAlertService $service): View
     {
-        $service->synchronize();
+        $service->synchronizeIfStale();
 
         $status = $request->query('status', 'active');
         $severity = $request->query('severity');

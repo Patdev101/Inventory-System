@@ -230,20 +230,353 @@
         </div>
 
 
+        <hr>
+
+
+        <h2>
+            Base Unit
+
+            @if ($hasInventoryHistory)
+
+                <span class="locked-badge">
+                    🔒 Locked
+                </span>
+
+            @endif
+
+        </h2>
+
+
         <div class="form-group">
 
-            <label for="sku">
-                SKU
-                <small>(Optional)</small>
+            <select
+                id="base_unit_id"
+                name="base_unit_id"
+                class="form-control {{ $hasInventoryHistory ? 'locked' : '' }}"
+                required
+
+                @if ($hasInventoryHistory)
+                    disabled
+                @endif
+            >
+
+                <option value="">
+                    -- Select Base Unit --
+                </option>
+
+                @foreach ($units as $unit)
+
+                    <option
+                        value="{{ $unit->id }}"
+                        {{ old(
+                            'base_unit_id',
+                            $product->base_unit_id
+                        ) == $unit->id ? 'selected' : '' }}
+                    >
+
+                        {{ $unit->name }}
+                        ({{ $unit->code }})
+
+                    </option>
+
+                @endforeach
+
+            </select>
+
+
+            @if ($hasInventoryHistory)
+
+                <input
+                    type="hidden"
+                    name="base_unit_id"
+                    value="{{ $product->base_unit_id }}"
+                >
+
+                <div class="info-box">
+                    🔒 The base unit cannot be changed because
+                    historical inventory depends on its definition.
+                </div>
+
+            @endif
+
+        </div>
+
+
+        @include('products._unit-suggestions')
+
+
+
+        <h2>
+            Available Units
+        </h2>
+
+
+        <div class="unit-table-wrapper">
+
+            <table class="unit-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Unit</th>
+
+                        <th>
+                            Conversion to Base Unit
+                        </th>
+
+                        <th>Status</th>
+
+                        <th style="text-align: center;">
+                            Action
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="units-container">
+
+                    @foreach ($formUnits as $index => $formUnit)
+
+                        @php
+
+                            $unitId =
+                                $formUnit['unit_of_measure_id']
+                                ?? '';
+
+                            $conversion =
+                                $formUnit['conversion_factor']
+                                ?? '1';
+
+                            $existingProductUnit =
+                                $product->productUnits
+                                    ->firstWhere(
+                                        'unit_of_measure_id',
+                                        $unitId
+                                    );
+
+                            $isExisting =
+                                $existingProductUnit !== null;
+
+                            $isUnitLocked =
+                                $hasInventoryHistory &&
+                                $isExisting;
+
+                        @endphp
+
+                        <tr
+                            class="unit-row {{ $isUnitLocked ? 'is-locked' : '' }}"
+                        >
+
+                            <td>
+
+                                <select
+                                    name="units[{{ $index }}][unit_of_measure_id]"
+                                    class="form-control unit-select {{ $isUnitLocked ? 'locked' : '' }}"
+                                    required
+
+                                    @if ($isUnitLocked)
+                                        disabled
+                                    @endif
+                                >
+
+                                    <option value="">
+                                        -- Select Unit --
+                                    </option>
+
+                                    @foreach ($units as $unit)
+
+                                        <option
+                                            value="{{ $unit->id }}"
+                                            {{ (string) $unitId === (string) $unit->id ? 'selected' : '' }}
+                                        >
+                                            {{ $unit->name }}
+                                            ({{ $unit->code }})
+                                        </option>
+
+                                    @endforeach
+
+                                </select>
+
+
+                                @if ($isUnitLocked)
+
+                                    <input
+                                        type="hidden"
+                                        name="units[{{ $index }}][unit_of_measure_id]"
+                                        value="{{ $unitId }}"
+                                    >
+
+                                @endif
+
+                            </td>
+
+
+                            <td>
+
+                                <input
+                                    type="text" inputmode="decimal" autocomplete="off" data-numeric
+                                    name="units[{{ $index }}][conversion_factor]"
+                                    class="form-control conversion-input {{ $isUnitLocked ? 'locked' : '' }}"
+                                    value="{{ $conversion }}"
+                                    min="0.0001"
+                                    step="0.0001"
+                                    required
+
+                                    @if ($isUnitLocked)
+                                        readonly
+                                        data-history-locked="1"
+                                    @endif
+                                >
+
+                                <small class="help-text">
+
+                                    1 selected unit =
+
+                                    <span class="factor-preview">
+                                        {{ format_qty((float) $conversion) }}
+                                    </span>
+
+                                    base units.
+
+                                </small>
+
+                            </td>
+
+
+                            <td>
+
+                                @if ($isUnitLocked)
+
+                                    <span class="locked-badge">
+                                        🔒 Existing
+                                    </span>
+
+                                @else
+
+                                    <span style="color: #166534;">
+                                        Editable
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+
+                            <td style="text-align: center;">
+
+                                <button
+                                    type="button"
+                                    class="remove-unit btn btn-secondary"
+                                >
+                                    Remove
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                    @endforeach
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="add-unit"
+            class="btn btn-secondary"
+            style="margin-top: 15px;"
+        >
+            + Add Unit
+        </button>
+
+
+        <hr>
+
+
+        <h2>Pricing</h2>
+
+        <p class="muted">
+            Prices are per <strong>base unit</strong> and already include VAT.
+        </p>
+
+
+        <details class="cost-helper">
+            <summary>Bought by the box or case? Work out the cost per base unit</summary>
+
+        <div class="cost-helper-box">
+
+            <div class="cost-helper-row">
+
+                <div>
+                    <label for="cost-helper-amount">
+                        I paid
+                    </label>
+                    <input
+                        type="text" inputmode="decimal" autocomplete="off" data-numeric
+                        id="cost-helper-amount"
+                        class="form-control"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 200"
+                    >
+                </div>
+
+                <div>
+                    <label for="cost-helper-unit">
+                        per
+                    </label>
+                    <select
+                        id="cost-helper-unit"
+                        class="form-control"
+                    >
+                        <option value="">-- Select a unit --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <button
+                        type="button"
+                        id="cost-helper-apply"
+                        class="btn btn-secondary"
+                    >
+                        Use this cost
+                    </button>
+                </div>
+
+            </div>
+
+            <small class="help-text" id="cost-helper-result"></small>
+
+        </div>
+
+
+        </details>
+
+
+        <div class="pricing-grid">
+
+        <div class="form-group">
+
+            <label for="cost_price">
+                Cost Price
+                <small>(per base unit)</small>
             </label>
 
             <input
-                type="text"
-                id="sku"
-                name="sku"
+                type="text" inputmode="decimal" autocomplete="off" data-numeric
+                id="cost_price"
+                name="cost_price"
                 class="form-control"
-                value="{{ old('sku', $product->sku) }}"
-                maxlength="100"
+                value="{{ old('cost_price', $product->cost_price) }}"
+                min="0"
+                step="0.0001"
+                placeholder="0.00"
             >
 
         </div>
@@ -251,45 +584,95 @@
 
         <div class="form-group">
 
-            <label for="barcode">
-                Barcode
-                <small>(Optional)</small>
+            <label for="pricing_method">
+                Pricing Method
+            </label>
+
+            <select
+                id="pricing_method"
+                name="pricing_method"
+                class="form-control"
+            >
+
+                <option
+                    value="manual"
+                    {{ old('pricing_method', $product->pricing_method) === 'manual' ? 'selected' : '' }}
+                >
+                    Manual
+                </option>
+
+                <option
+                    value="markup"
+                    {{ old('pricing_method', $product->pricing_method) === 'markup' ? 'selected' : '' }}
+                >
+                    Markup
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="form-group" id="markup-field-group">
+
+            <label for="markup_percentage">
+                Markup %
             </label>
 
             <input
-                type="text"
-                id="barcode"
-                name="barcode"
+                type="text" inputmode="decimal" autocomplete="off" data-numeric
+                id="markup_percentage"
+                name="markup_percentage"
                 class="form-control"
-                value="{{ old('barcode', $product->barcode) }}"
-                maxlength="100"
-                placeholder="Scan or type the product barcode"
+                value="{{ old('markup_percentage', $product->markup_percentage) }}"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
             >
 
-            <small class="help-text">
-                Used by the POS to add this product to a sale by scanning.
+        </div>
+
+
+        <div class="form-group">
+
+            <label for="selling_price">
+                Selling Price
+                <small>(per base unit)</small>
+            </label>
+
+            <input
+                type="text" inputmode="decimal" autocomplete="off" data-numeric
+                id="selling_price"
+                name="selling_price"
+                class="form-control"
+                value="{{ old('selling_price', $product->selling_price) }}"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+            >
+
+            <small class="help-text" id="selling-price-help">
+                Enter the selling price directly.
             </small>
 
         </div>
 
 
-        <div class="form-group">
-
-            <label for="item_code">
-                Item Code
-                <small>(Optional)</small>
-            </label>
-
-            <input
-                type="text"
-                id="item_code"
-                name="item_code"
-                class="form-control"
-                value="{{ old('item_code', $product->item_code) }}"
-                maxlength="100"
-            >
-
         </div>
+
+
+        <div class="price-summary">
+            <span class="price-summary-empty">Enter a cost and a selling price to see profit, VAT and the price for each unit.</span>
+            <div class="summary-group" id="pricing-preview" hidden></div>
+            <div class="summary-group" id="vat-breakdown" hidden></div>
+            <div class="summary-group summary-units" id="unit-pricing-preview" hidden></div>
+        </div>
+
+
+        <hr>
+
+
+        <h2>Stock Settings and Details</h2>
 
 
         <div class="form-group">
@@ -299,7 +682,7 @@
             </label>
 
             <input
-                type="number"
+                type="text" inputmode="decimal" autocomplete="off" data-numeric
                 id="reorder_point"
                 name="reorder_point"
                 class="form-control"
@@ -424,401 +807,27 @@
         <hr>
 
 
-        <h2>
-            Base Unit
-
-            @if ($hasInventoryHistory)
-
-                <span class="locked-badge">
-                    🔒 Locked
-                </span>
-
-            @endif
-
-        </h2>
-
-
-        <div class="form-group">
-
-            <select
-                id="base_unit_id"
-                name="base_unit_id"
-                class="form-control {{ $hasInventoryHistory ? 'locked' : '' }}"
-                required
-
-                @if ($hasInventoryHistory)
-                    disabled
-                @endif
-            >
-
-                <option value="">
-                    -- Select Base Unit --
-                </option>
-
-                @foreach ($units as $unit)
-
-                    <option
-                        value="{{ $unit->id }}"
-                        {{ old(
-                            'base_unit_id',
-                            $product->base_unit_id
-                        ) == $unit->id ? 'selected' : '' }}
-                    >
-
-                        {{ $unit->name }}
-                        ({{ $unit->code }})
-
-                    </option>
-
-                @endforeach
-
-            </select>
-
-
-            @if ($hasInventoryHistory)
-
-                <input
-                    type="hidden"
-                    name="base_unit_id"
-                    value="{{ $product->base_unit_id }}"
-                >
-
-                <div class="info-box">
-                    🔒 The base unit cannot be changed because
-                    historical inventory depends on its definition.
-                </div>
-
-            @endif
-
-        </div>
-
-
-        <h2>
-            Available Units
-        </h2>
-
-
-        <div class="unit-table-wrapper">
-
-            <table class="unit-table">
-
-                <thead>
-
-                    <tr>
-
-                        <th>Unit</th>
-
-                        <th>
-                            Conversion to Base Unit
-                        </th>
-
-                        <th>Status</th>
-
-                        <th style="text-align: center;">
-                            Action
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody id="units-container">
-
-                    @foreach ($formUnits as $index => $formUnit)
-
-                        @php
-
-                            $unitId =
-                                $formUnit['unit_of_measure_id']
-                                ?? '';
-
-                            $conversion =
-                                $formUnit['conversion_factor']
-                                ?? '1';
-
-                            $existingProductUnit =
-                                $product->productUnits
-                                    ->firstWhere(
-                                        'unit_of_measure_id',
-                                        $unitId
-                                    );
-
-                            $isExisting =
-                                $existingProductUnit !== null;
-
-                            $isUnitLocked =
-                                $hasInventoryHistory &&
-                                $isExisting;
-
-                        @endphp
-
-                        <tr
-                            class="unit-row {{ $isUnitLocked ? 'is-locked' : '' }}"
-                        >
-
-                            <td>
-
-                                <select
-                                    name="units[{{ $index }}][unit_of_measure_id]"
-                                    class="form-control unit-select {{ $isUnitLocked ? 'locked' : '' }}"
-                                    required
-
-                                    @if ($isUnitLocked)
-                                        disabled
-                                    @endif
-                                >
-
-                                    <option value="">
-                                        -- Select Unit --
-                                    </option>
-
-                                    @foreach ($units as $unit)
-
-                                        <option
-                                            value="{{ $unit->id }}"
-                                            {{ (string) $unitId === (string) $unit->id ? 'selected' : '' }}
-                                        >
-                                            {{ $unit->name }}
-                                            ({{ $unit->code }})
-                                        </option>
-
-                                    @endforeach
-
-                                </select>
-
-
-                                @if ($isUnitLocked)
-
-                                    <input
-                                        type="hidden"
-                                        name="units[{{ $index }}][unit_of_measure_id]"
-                                        value="{{ $unitId }}"
-                                    >
-
-                                @endif
-
-                            </td>
-
-
-                            <td>
-
-                                <input
-                                    type="number"
-                                    name="units[{{ $index }}][conversion_factor]"
-                                    class="form-control conversion-input {{ $isUnitLocked ? 'locked' : '' }}"
-                                    value="{{ $conversion }}"
-                                    min="0.0001"
-                                    step="0.0001"
-                                    required
-
-                                    @if ($isUnitLocked)
-                                        readonly
-                                        data-history-locked="1"
-                                    @endif
-                                >
-
-                                <small class="help-text">
-
-                                    1 selected unit =
-
-                                    <span class="factor-preview">
-                                        {{ format_qty((float) $conversion) }}
-                                    </span>
-
-                                    base units.
-
-                                </small>
-
-                            </td>
-
-
-                            <td>
-
-                                @if ($isUnitLocked)
-
-                                    <span class="locked-badge">
-                                        🔒 Existing
-                                    </span>
-
-                                @else
-
-                                    <span style="color: #166534;">
-                                        Editable
-                                    </span>
-
-                                @endif
-
-                            </td>
-
-
-                            <td style="text-align: center;">
-
-                                <button
-                                    type="button"
-                                    class="remove-unit btn btn-secondary"
-                                >
-                                    Remove
-                                </button>
-
-                            </td>
-
-                        </tr>
-
-                    @endforeach
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-
-        <button
-            type="button"
-            id="add-unit"
-            class="btn btn-secondary"
-            style="margin-top: 15px;"
-        >
-            + Add Unit
-        </button>
-
-
-        <hr>
-
-
-        <h2>Pricing</h2>
+        <h2>Product Codes (optional)</h2>
 
         <p class="muted">
-            Cost price and selling price are always entered per
-            <strong>base unit</strong> (the unit selected above). Set the
-            selling price manually, or let it be calculated automatically
-            from a cost price and markup percentage.
+            Leave these blank and the system fills them in for you.
         </p>
 
 
         <div class="form-group">
 
-            <label for="cost_price">
-                Cost Price
-                <small>(per base unit)</small>
+            <label for="sku">
+                SKU
+                <small>(Optional)</small>
             </label>
 
             <input
-                type="number"
-                id="cost_price"
-                name="cost_price"
+                type="text"
+                id="sku"
+                name="sku"
                 class="form-control"
-                value="{{ old('cost_price', $product->cost_price) }}"
-                min="0"
-                step="0.0001"
-                placeholder="0.00"
-            >
-
-        </div>
-
-
-        <div class="cost-helper-box">
-
-            <strong>
-                Not sure what that is per base unit?
-            </strong>
-
-            <p class="muted" style="margin: 4px 0 10px;">
-                Tell us what you paid per purchasing unit (e.g. per Box)
-                and we'll work out the cost per base unit for you.
-            </p>
-
-            <div class="cost-helper-row">
-
-                <div>
-                    <label for="cost-helper-amount">
-                        I paid
-                    </label>
-                    <input
-                        type="number"
-                        id="cost-helper-amount"
-                        class="form-control"
-                        min="0"
-                        step="0.01"
-                        placeholder="e.g. 200"
-                    >
-                </div>
-
-                <div>
-                    <label for="cost-helper-unit">
-                        per
-                    </label>
-                    <select
-                        id="cost-helper-unit"
-                        class="form-control"
-                    >
-                        <option value="">-- Select a unit --</option>
-                    </select>
-                </div>
-
-                <div>
-                    <button
-                        type="button"
-                        id="cost-helper-apply"
-                        class="btn btn-secondary"
-                    >
-                        Use this cost
-                    </button>
-                </div>
-
-            </div>
-
-            <small class="help-text" id="cost-helper-result"></small>
-
-        </div>
-
-
-        <div class="form-group">
-
-            <label for="pricing_method">
-                Pricing Method
-            </label>
-
-            <select
-                id="pricing_method"
-                name="pricing_method"
-                class="form-control"
-            >
-
-                <option
-                    value="manual"
-                    {{ old('pricing_method', $product->pricing_method) === 'manual' ? 'selected' : '' }}
-                >
-                    Manual
-                </option>
-
-                <option
-                    value="markup"
-                    {{ old('pricing_method', $product->pricing_method) === 'markup' ? 'selected' : '' }}
-                >
-                    Markup
-                </option>
-
-            </select>
-
-        </div>
-
-
-        <div class="form-group" id="markup-field-group">
-
-            <label for="markup_percentage">
-                Markup %
-            </label>
-
-            <input
-                type="number"
-                id="markup_percentage"
-                name="markup_percentage"
-                class="form-control"
-                value="{{ old('markup_percentage', $product->markup_percentage) }}"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
+                value="{{ old('sku', $product->sku) }}"
+                maxlength="100"
             >
 
         </div>
@@ -826,67 +835,43 @@
 
         <div class="form-group">
 
-            <label for="selling_price">
-                Selling Price
-                <small>(per base unit)</small>
+            <label for="barcode">
+                Barcode
+                <small>(Optional)</small>
             </label>
 
             <input
-                type="number"
-                id="selling_price"
-                name="selling_price"
+                type="text"
+                id="barcode"
+                name="barcode"
                 class="form-control"
-                value="{{ old('selling_price', $product->selling_price) }}"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
+                value="{{ old('barcode', $product->barcode) }}"
+                maxlength="100"
+                placeholder="Scan or type the product barcode"
             >
 
-            <small class="help-text" id="selling-price-help">
-                Enter the selling price directly.
+            <small class="help-text">
+                Used by the POS to add this product to a sale by scanning.
             </small>
 
         </div>
 
 
-        <div class="info-box" id="pricing-preview">
-            Enter a cost price to see the expected profit and margin.
-        </div>
+        <div class="form-group">
 
+            <label for="item_code">
+                Item Code
+                <small>(Optional)</small>
+            </label>
 
-        <div class="info-box" id="vat-breakdown">
-            Enter a selling price to see the VAT breakdown.
-        </div>
-
-
-        <div id="unit-pricing-preview" class="info-box"></div>
-
-
-        <div class="info-box">
-
-            <strong>
-                How conversion works
-            </strong>
-
-            <br><br>
-
-            If the base unit is Piece:
-
-            <br><br>
-
-            1 Piece = 1 base unit
-
-            <br>
-
-            1 Pack = 6 base units
-
-            <br>
-
-            1 Box = 12 base units
-
-            <br><br>
-
-            Therefore 2 Boxes = 24 Pieces internally.
+            <input
+                type="text"
+                id="item_code"
+                name="item_code"
+                class="form-control"
+                value="{{ old('item_code', $product->item_code) }}"
+                maxlength="100"
+            >
 
         </div>
 
@@ -1064,6 +1049,55 @@
         font-weight: 600;
     }
 
+    /* Units table: fields line up along the top of each row */
+    .unit-table td { vertical-align: top; }
+    .unit-table .form-control,
+    .unit-table .btn { height: 44px; box-sizing: border-box; }
+    .unit-table .help-text { margin-top: 4px; }
+
+    /* Pricing: compact layout */
+    .cost-helper {
+        margin-bottom: 16px;
+        border: 1px solid #fde68a;
+        background: #fffbeb;
+        border-radius: 8px;
+        color: #78350f;
+    }
+    .cost-helper summary { cursor: pointer; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+    .cost-helper .cost-helper-box { margin: 0; border: 0; border-top: 1px solid #fde68a; border-radius: 0 0 8px 8px; }
+    .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 0 16px;
+        align-items: start;
+    }
+    .price-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 22px;
+        margin-top: 6px;
+        padding: 12px 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    .price-summary-empty { color: #64748b; font-size: 13px; }
+    .price-summary:has(.summary-group:not([hidden])) .price-summary-empty { display: none; }
+    .summary-group { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+    .summary-group[hidden] { display: none; }
+    .summary-units { flex-basis: 100%; gap: 8px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+    .summary-stat small {
+        display: block; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+        text-transform: uppercase; color: #64748b;
+    }
+    .summary-stat b { font-size: 17px; color: #0f172a; font-variant-numeric: tabular-nums; }
+    .summary-stat.is-loss b { color: #b91c1c; }
+    .summary-chip {
+        font-size: 13px; padding: 5px 10px; border-radius: 999px;
+        background: #fff; border: 1px solid #cbd5e1; color: #334155;
+    }
+    .summary-chip b { color: #0f172a; }
     .checkbox-label {
         display: inline-flex !important;
         align-items: center;
@@ -1233,13 +1267,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 : NaN;
 
         if (isNaN(sellingPrice) && isNaN(costPrice)) {
-            preview.innerHTML =
-                'Enter a cost price or selling price to see what each unit costs and sells for.';
+            preview.hidden = true;
             return;
         }
 
-        let html =
-            '<strong>Price by Unit</strong><br><br>';
+        let html = '';
 
         let hasRows = false;
 
@@ -1290,16 +1322,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     );
                 }
 
-                html +=
-                    unitLabel + ': ' + parts.join(' — ') + '<br>';
+                html += '<span class="summary-chip"><b>' + unitLabel + '</b> ' + parts.join(' · ') + '</span>';
             });
 
         if (!hasRows) {
-            preview.innerHTML =
-                'Configure at least one unit to see pricing per unit.';
+            preview.hidden = true;
             return;
         }
 
+        preview.hidden = false;
         preview.innerHTML = html;
     }
 
@@ -1643,7 +1674,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td>
 
                     <input
-                        type="number"
+                        type="text" inputmode="decimal" autocomplete="off" data-numeric
                         name="units[${unitIndex}][conversion_factor]"
                         class="form-control conversion-input"
                         value="1"
@@ -1895,18 +1926,17 @@ document.addEventListener('DOMContentLoaded', function () {
         updateVatBreakdown(sellingPrice);
 
         if (isNaN(costPrice) || isNaN(sellingPrice)) {
-            pricingPreview.innerHTML =
-                'Enter a cost price to see the expected profit and margin.';
+            pricingPreview.hidden = true;
             return;
         }
 
         const profit = sellingPrice - costPrice;
         const margin = sellingPrice > 0 ? (profit / sellingPrice) * 100 : null;
 
+        pricingPreview.hidden = false;
         pricingPreview.innerHTML =
-            '<strong>Expected Profit:</strong> ' + formatMoney(profit) +
-            '<br><strong>Profit Margin:</strong> ' +
-            (margin === null ? 'N/A' : margin.toFixed(2) + '%');
+            '<span class="summary-stat' + (profit < 0 ? ' is-loss' : '') + '"><small>Profit</small><b>' + formatMoney(profit) + '</b></span>' +
+            '<span class="summary-stat"><small>Margin</small><b>' + (margin === null ? 'N/A' : margin.toFixed(2) + '%') + '</b></span>';
     }
 
 
@@ -1931,28 +1961,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (isNaN(sellingPrice) || sellingPrice <= 0) {
-            breakdown.innerHTML =
-                'Enter a selling price to see the VAT breakdown.';
+            breakdown.hidden = true;
             return;
         }
 
         if (vatRate <= 0) {
-            breakdown.innerHTML =
-                '<strong>VAT:</strong> not applicable (VAT rate is 0%).' +
-                '<br>Selling Price: ' + formatMoney(sellingPrice);
+            breakdown.hidden = true;
             return;
         }
 
         const vatableSales = sellingPrice / (1 + (vatRate / 100));
         const vatAmount = sellingPrice - vatableSales;
 
+        breakdown.hidden = false;
+        breakdown.title = 'The selling price already includes VAT. The POS charges exactly this price and only shows the VAT on the receipt.';
         breakdown.innerHTML =
-            '<strong>Why the selling price is what it is (VAT ' + vatRate + '%):</strong><br>' +
-            'Subtotal (VAT-exclusive): ' + formatMoney(vatableSales) +
-            ' + VAT: ' + formatMoney(vatAmount) +
-            ' = Selling Price: ' + formatMoney(sellingPrice) +
-            '<br><small>This is exactly how the POS will show it on the receipt — ' +
-            'the customer pays ' + formatMoney(sellingPrice) + ', VAT is just disclosed, never added on top.</small>';
+            '<span class="summary-stat"><small>Before VAT</small><b>' + formatMoney(vatableSales) + '</b></span>' +
+            '<span class="summary-stat"><small>VAT ' + vatRate + '%</small><b>' + formatMoney(vatAmount) + '</b></span>';
     }
 
     costPriceInput.addEventListener('input', function () {

@@ -863,6 +863,100 @@
             button.classList.add('is-loading');
         });
     });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Number-only text fields
+    |--------------------------------------------------------------------------
+    | Quantities, prices and reorder points are plain text fields marked
+    | data-numeric, not type="number": a number field changes its value when
+    | the mouse wheel passes over it, which silently corrupted entries. These
+    | accept only digits and one decimal point; the decimals allowed come
+    | from the field's step (0.01 = 2 places, 0.0001 = 4 places).
+    */
+    function sanitizeNumeric(input) {
+        var step = input.getAttribute('step') || '1';
+        var decimals = step.indexOf('.') === -1 ? 0 : step.split('.')[1].length;
+        var raw = input.value;
+        var clean = raw.replace(/[^0-9.]/g, '');
+
+        if (decimals === 0) {
+            clean = clean.replace(/\./g, '');
+        } else {
+            var firstDot = clean.indexOf('.');
+
+            if (firstDot !== -1) {
+                clean = clean.slice(0, firstDot + 1) + clean.slice(firstDot + 1).replace(/\./g, '').slice(0, decimals);
+            }
+        }
+
+        if (clean !== raw) {
+            var caret = input.selectionStart - (raw.length - clean.length);
+            input.value = clean;
+
+            try {
+                input.setSelectionRange(Math.max(caret, 0), Math.max(caret, 0));
+            } catch (e) {}
+        }
+
+        var value = parseFloat(clean);
+        var min = parseFloat(input.getAttribute('min'));
+        var max = parseFloat(input.getAttribute('max'));
+        var message = '';
+
+        if (clean !== '' && !isNaN(value)) {
+            if (!isNaN(min) && value < min) {
+                message = 'Enter ' + min + ' or more.';
+            } else if (!isNaN(max) && value > max) {
+                message = 'Enter ' + max + ' or less.';
+            }
+        }
+
+        input.setCustomValidity(message);
+    }
+
+    document.addEventListener('input', function (event) {
+        if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-numeric')) {
+            sanitizeNumeric(event.target);
+        }
+    }, true);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Uppercase set-up fields
+    |--------------------------------------------------------------------------
+    | Names and codes on the maintenance pages are stored in capitals so
+    | every record looks the same. Typed text is capitalised as you go; the
+    | server capitalises it again on save, so this is only for what you see.
+    */
+    var uppercasePages = /^\/(companies|locations|product-categories|units-of-measure|suppliers|products)(\/|$)/;
+    var uppercaseFields = ['name', 'code', 'sku', 'item_code'];
+
+    document.addEventListener('input', function (event) {
+        var input = event.target;
+
+        if (!(input instanceof HTMLInputElement) || !uppercasePages.test(window.location.pathname)) {
+            return;
+        }
+
+        if (uppercaseFields.indexOf(input.name) === -1 || input.type !== 'text') {
+            return;
+        }
+
+        var upper = input.value.toUpperCase();
+
+        if (upper !== input.value) {
+            var start = input.selectionStart;
+            var end = input.selectionEnd;
+            input.value = upper;
+
+            try {
+                input.setSelectionRange(start, end);
+            } catch (e) {}
+        }
+    }, true);
 </script>
 
 </body>

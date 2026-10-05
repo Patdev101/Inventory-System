@@ -62,8 +62,15 @@ Route::middleware(['inventory.api-token', 'throttle:120,1'])->group(function () 
 
     Route::get('/locations', function () {
         return Location::query()
+            ->with('company:id,name')
             ->orderBy('name')
-            ->get(['id', 'name', 'code']);
+            ->get(['id', 'name', 'code', 'company_id'])
+            ->map(fn (Location $location) => [
+                'id' => $location->id,
+                'name' => $location->name,
+                'code' => $location->code,
+                'company' => $location->company?->only(['id', 'name']),
+            ]);
     });
 
     Route::post(

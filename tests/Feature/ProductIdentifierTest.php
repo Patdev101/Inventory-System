@@ -45,7 +45,7 @@ class ProductIdentifierTest extends TestCase
             ->post(route('products.store'), $this->baseFormPayload())
             ->assertRedirect(route('products.index'));
 
-        $product = Product::where('name', 'Test Product')->firstOrFail();
+        $product = Product::where('name', 'TEST PRODUCT')->firstOrFail();
 
         $this->assertNotNull($product->sku);
         $this->assertNotNull($product->item_code);
@@ -66,7 +66,7 @@ class ProductIdentifierTest extends TestCase
             ->post(route('products.store'), $payload)
             ->assertRedirect(route('products.index'));
 
-        $product = Product::where('name', 'Test Product')->firstOrFail();
+        $product = Product::where('name', 'TEST PRODUCT')->firstOrFail();
 
         $this->assertSame('CUSTOM-SKU-1', $product->sku);
         $this->assertSame('CUSTOM-ITEM-1', $product->item_code);

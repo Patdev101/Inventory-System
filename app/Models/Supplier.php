@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Supplier extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\UppercasesAttributes;
+
+    protected array $uppercase = ['name'];
 
     protected $fillable = [
         'company_id',

@@ -145,7 +145,50 @@ class QaRegressionTest extends TestCase
         $name = 'Kape ☕ Barako – Niño 「特」';
         $this->stocked(5, ['name' => $name]);
 
-        $this->assertSame($name, $this->getJson('/api/products', $this->api())->json('0.name'));
+        // Product names are stored in capitals; accents and symbols must survive.
+        $this->assertSame('KAPE ☕ BARAKO – NIÑO 「特」', $this->getJson('/api/products', $this->api())->json('0.name'));
+    }
+
+    public function test_qa_standard_units_exist_without_seeding(): void
+    {
+        foreach (['PCS', 'BOX', 'DOZ', 'KG', 'G', 'L', 'ML', 'M'] as $code) {
+            $this->assertDatabaseHas('units_of_measure', ['code' => $code]);
+        }
+    }
+
+    public function test_qa_setup_names_and_codes_are_saved_in_capitals(): void
+    {
+        $company = $this->makeCompany(['name' => 'acme Trading', 'code' => 'acme-1']);
+        $location = $this->makeLocation($company, ['name' => 'main store', 'code' => 'ms-1']);
+        $product = $this->makeProduct($company, $this->makeCategory(['name' => 'drinks']), $this->makeUnit(), [
+            'name' => 'coke 1.5l', 'sku' => 'coke-15',
+        ]);
+
+        $this->assertSame('ACME TRADING', $company->fresh()->name);
+        $this->assertSame('ACME-1', $company->fresh()->code);
+        $this->assertSame('MAIN STORE', $location->fresh()->name);
+        $this->assertSame('COKE 1.5L', $product->fresh()->name);
+        $this->assertSame('COKE-15', $product->fresh()->sku);
+        $this->assertSame('DRINKS', $product->fresh()->category->name);
+    }
+
+    public function test_qa_dashboard_does_not_query_once_per_stock_record(): void
+    {
+        $s = $this->stocked(0);
+        for ($i = 0; $i < 30; $i++) {
+            $location = $this->makeLocation($s['company']);
+            $this->makeInventory($s['product'], $location, $s['unit'], 0, 0);
+        }
+
+        $admin = $this->makeUser(User::ROLE_ADMIN);
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $this->actingAs($admin)->get('/dashboard')->assertOk();
+        $alertLookups = collect(\Illuminate\Support\Facades\DB::getQueryLog())
+            ->filter(fn ($q) => str_contains($q['query'], 'from "stock_alerts"') && str_starts_with($q['query'], 'select'))
+            ->count();
+
+        $this->assertLessThan(10, $alertLookups, "Dashboard ran {$alertLookups} stock-alert lookups for 31 stock records");
+        $this->assertSame(31, \App\Models\StockAlert::count());
     }
 
     // ------------------------------------------------------ stock editing

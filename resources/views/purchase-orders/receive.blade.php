@@ -965,7 +965,7 @@
 
 
                                     <input
-                                        type="number"
+                                        type="text" inputmode="decimal" autocomplete="off" data-numeric
                                         name="lines[{{ $index }}][quantity_received]"
                                         value="{{ old(
                                             "lines.$index.quantity_received",

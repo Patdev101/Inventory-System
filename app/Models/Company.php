@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Company extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\UppercasesAttributes;
     use SoftDeletes;
 
     protected $fillable = [

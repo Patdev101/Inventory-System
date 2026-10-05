@@ -603,7 +603,7 @@
                     <td>
 
                         <input
-                            type="number"
+                            type="text" inputmode="decimal" autocomplete="off" data-numeric
                             name="quantity"
                             id="quantity"
                             class="form-control"

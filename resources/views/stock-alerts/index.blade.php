@@ -101,7 +101,7 @@
 
             @if ($alert->inventory?->product?->image_url)
 
-                <img
+                <img loading="lazy" decoding="async"
                     src="{{ $alert->inventory->product->image_url }}"
                     alt="{{ $alert->inventory->product->name }}"
                 >

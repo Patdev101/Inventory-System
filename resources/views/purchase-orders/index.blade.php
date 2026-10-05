@@ -426,7 +426,7 @@
 
                                             @if ($product->image_url)
 
-                                                <img
+                                                <img loading="lazy" decoding="async"
                                                     src="{{ $product->image_url }}"
                                                     alt="{{ $product->name }}"
                                                     style="width: 32px; height: 32px; object-fit: cover; border-radius: 6px; border: 2px solid #ffffff; box-shadow: 0 0 0 1px #e5e7eb; display: block;"

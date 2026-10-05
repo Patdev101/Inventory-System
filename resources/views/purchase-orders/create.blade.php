@@ -606,7 +606,7 @@
                         </label>
 
                         <input
-                            type="number"
+                            type="text" inputmode="decimal" autocomplete="off" data-numeric
                             id="entry-quantity"
                             min="0.0001"
                             step="0.0001"
@@ -624,7 +624,7 @@
                         </label>
 
                         <input
-                            type="number"
+                            type="text" inputmode="decimal" autocomplete="off" data-numeric
                             id="entry-price"
                             min="0"
                             step="0.0001"
@@ -1956,7 +1956,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="qty-control">
 
                     <input
-                        type="number"
+                        type="text" inputmode="decimal" autocomplete="off" data-numeric
                         name="items[${index}][quantity_ordered]"
                         value="${quantity}"
                         min="0.0001"
@@ -1973,7 +1973,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <td>
 
                 <input
-                    type="number"
+                    type="text" inputmode="decimal" autocomplete="off" data-numeric
                     name="items[${index}][unit_price]"
                     value="${formatQty(price)}"
                     min="0"

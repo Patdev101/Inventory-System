@@ -6,21 +6,38 @@ use App\Models\Inventory;
 use App\Models\StockAlert;
 use App\Models\User;
 use App\Notifications\StockAlertNotification;
+use Illuminate\Support\Facades\Cache;
 
 class StockAlertService
 {
+    /**
+     * Page loads call this instead of synchronize(): the full check runs at
+     * most once a minute no matter how many people open the dashboard, so
+     * opening a page never costs a pass over every stock record.
+     */
+    public function synchronizeIfStale(int $seconds = 60): void
+    {
+        if (Cache::add('stock-alerts:last-sync', true, $seconds)) {
+            $this->synchronize();
+        }
+    }
+
     public function synchronize(bool $notify = false): int
     {
         $created = 0;
 
-        Inventory::with('product')->chunkById(100, function ($inventories) use (&$created, $notify) {
+        Inventory::with('product')->chunkById(200, function ($inventories) use (&$created, $notify) {
+            // One query for the whole chunk instead of one per stock record.
+            $activeAlerts = StockAlert::active()
+                ->whereIn('inventory_id', $inventories->modelKeys())
+                ->orderBy('id')
+                ->get()
+                ->keyBy('inventory_id');
+
             foreach ($inventories as $inventory) {
                 $severity = $this->severityFor($inventory);
 
-                $activeAlert = StockAlert::active()
-                    ->where('inventory_id', $inventory->id)
-                    ->latest('id')
-                    ->first();
+                $activeAlert = $activeAlerts->get($inventory->id);
 
                 if ($severity === null) {
                     if ($activeAlert) {

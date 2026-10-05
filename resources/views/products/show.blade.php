@@ -44,7 +44,7 @@
 
         @if ($product->image_url)
 
-            <img
+            <img loading="lazy" decoding="async"
                 src="{{ $product->image_url }}"
                 alt="{{ $product->name }}"
             >

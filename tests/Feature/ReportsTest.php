@@ -61,6 +61,6 @@ class ReportsTest extends TestCase
         $response = $this->actingAs($manager)->get(route('reports.low-stock', ['status' => 'out_of_stock']));
 
         $response->assertOk();
-        $response->assertSee('OutOfStockThing');
+        $response->assertSee('OUTOFSTOCKTHING');
     }
 }
