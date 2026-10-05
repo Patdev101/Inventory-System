@@ -534,11 +534,20 @@ class PurchaseOrderController extends Controller
             $mail->bcc($validated['bcc_email']);
         }
 
-        $mail->send(new PurchaseOrderMail(
-            purchaseOrder: $purchaseOrder,
-            emailSubject: $validated['subject'],
-            messageBody: $validated['body']
-        ));
+        try {
+            $mail->send(new PurchaseOrderMail(
+                purchaseOrder: $purchaseOrder,
+                emailSubject: $validated['subject'],
+                messageBody: $validated['body']
+            ));
+        } catch (\Throwable $e) {
+            // Nothing is recorded as sent: say so plainly and keep what was typed.
+            \Illuminate\Support\Facades\Log::error('Purchase order email failed: ' . $e->getMessage());
+
+            return back()
+                ->withInput()
+                ->withErrors(['mail' => 'The email could not be sent because the mail server is not reachable. Nothing was sent. Check the mail settings (an administrator can send a test email from My Account) and try again.']);
+        }
 
         PurchaseOrderEmail::create([
             'purchase_order_id' => $purchaseOrder->id,

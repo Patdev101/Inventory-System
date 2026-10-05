@@ -404,6 +404,37 @@ class QaRegressionTest extends TestCase
         $this->assertSame('staff', \App\Models\InventoryTransfer::latest('id')->value('receiver_role'));
     }
 
+    public function test_a_failed_notification_email_never_breaks_a_stock_request(): void
+    {
+        // Mail server unreachable: the request must still be saved.
+        config(['stockapprovals.email_enabled' => true, 'mail.default' => 'smtp', 'mail.mailers.smtp.host' => '127.0.0.1', 'mail.mailers.smtp.port' => 1]);
+
+        $s = $this->stocked(5);
+        $this->makeUser(User::ROLE_MANAGER);
+        $staff = $this->makeUser(User::ROLE_STAFF);
+
+        $this->actingAs($staff)->post(route('inventories.store'), [
+            'product_id' => $s['product']->id, 'location_id' => $s['location']->id,
+            'product_unit_id' => $s['unit']->id, 'quantity' => 1,
+        ])->assertRedirect();
+
+        $this->assertSame(1, StockMovementRequest::count());
+    }
+
+    public function test_a_purchase_order_email_failure_shows_a_message_and_records_nothing(): void
+    {
+        config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => '127.0.0.1', 'mail.mailers.smtp.port' => 1]);
+
+        $admin = $this->makeUser(User::ROLE_ADMIN);
+        $po = $this->orderedPurchaseOrder($admin, 5);
+
+        $this->actingAs($admin)->post(route('purchase-orders.email.send', $po), [
+            'to_email' => 'supplier@example.com', 'subject' => 'Order', 'body' => 'Please deliver.',
+        ])->assertSessionHasErrors('mail');
+
+        $this->assertDatabaseCount('purchase_order_emails', 0);
+    }
+
     private function orderedPurchaseOrder(User $creator, float $qty): PurchaseOrder
     {
         $company = $this->makeCompany();

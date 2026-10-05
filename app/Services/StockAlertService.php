@@ -78,9 +78,18 @@ class StockAlertService
                 $created++;
 
                 if ($notify && config('stockalerts.email_enabled')) {
-                    User::query()->whereNotNull('email')->each(function (User $user) use ($alert) {
-                        $user->notify(new StockAlertNotification($alert));
-                    });
+                    // Admins and the people who work at this stock record's location.
+                    User::query()
+                        ->whereNotNull('email')
+                        ->where('is_active', true)
+                        ->where(fn ($query) => $query->where('role', User::ROLE_ADMIN)->orWhere('location_id', $inventory->location_id))
+                        ->each(function (User $user) use ($alert) {
+                            try {
+                                $user->notify(new StockAlertNotification($alert));
+                            } catch (\Throwable $e) {
+                                \Illuminate\Support\Facades\Log::warning('Could not send stock alert to user ' . $user->id . ': ' . $e->getMessage());
+                            }
+                        });
                 }
             }
         });

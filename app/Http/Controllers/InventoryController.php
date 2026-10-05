@@ -513,14 +513,31 @@ public function destroy(Inventory $inventory)
  */
 private function notifyApprovers(StockMovementRequest $stockMovementRequest): void
 {
+    // Admins, plus the managers who work at the location(s) the request
+    // concerns. A failed notification (mail server down...) must never fail
+    // the request that was just saved.
+    $locationIds = array_filter([$stockMovementRequest->location_id, $stockMovementRequest->destination_location_id]);
+
     User::query()
-        ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_MANAGER])
         ->where('is_active', true)
+        ->where(function ($query) use ($locationIds) {
+            $query->where('role', User::ROLE_ADMIN);
+
+            $query->orWhere(function ($managers) use ($locationIds) {
+                $managers->where('role', User::ROLE_MANAGER);
+
+                if (UserAccess::enabled()) {
+                    $managers->whereIn('location_id', $locationIds);
+                }
+            });
+        })
         ->get()
         ->each(function (User $approver) use ($stockMovementRequest) {
-            $approver->notify(
-                new StockMovementRequestSubmitted($stockMovementRequest)
-            );
+            try {
+                $approver->notify(new StockMovementRequestSubmitted($stockMovementRequest));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Could not notify approver ' . $approver->id . ': ' . $e->getMessage());
+            }
         });
 }
 

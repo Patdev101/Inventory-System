@@ -229,4 +229,22 @@ class LocationAccessTest extends TestCase
         $this->actingAs($manager)->patch(route('users.deactivate', $other))->assertForbidden();
         $this->actingAs($manager)->patch(route('users.deactivate', $mine))->assertRedirect();
     }
+
+    public function test_approvers_are_only_the_admins_and_managers_of_that_location(): void
+    {
+        $adminUser = $this->makeUser(User::ROLE_ADMIN);
+        $managerHere = $this->userAt($this->locA1, User::ROLE_MANAGER);
+        $managerSibling = $this->userAt($this->locA2, User::ROLE_MANAGER);
+        $managerOtherCompany = $this->userAt($this->locB1, User::ROLE_MANAGER);
+
+        $this->actingAs($this->userAt($this->locA1))->post(route('inventories.store'), [
+            'product_id' => $this->stock['A1']['product']->id, 'location_id' => $this->locA1->id,
+            'product_unit_id' => $this->stock['A1']['unit']->id, 'quantity' => 2,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(1, $adminUser->notifications()->count());
+        $this->assertSame(1, $managerHere->notifications()->count());
+        $this->assertSame(0, $managerSibling->notifications()->count());
+        $this->assertSame(0, $managerOtherCompany->notifications()->count());
+    }
 }
