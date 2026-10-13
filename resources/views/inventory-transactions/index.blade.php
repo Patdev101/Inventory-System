@@ -1,80 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
+@extends('layouts.app')
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+@section('title', 'Transaction History')
 
-    <title>Transaction History</title>
+@section('content')
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
 
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f5f5f5;
-            margin: 0;
-            padding: 30px;
-            color: #222;
-        }
 
-        .container {
-            max-width: 1500px;
-            margin: 0 auto;
-        }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            gap: 20px;
-        }
 
-        h1 {
-            margin: 0 0 8px 0;
-        }
 
-        .header p {
-            margin: 0;
-            color: #666;
-        }
 
-        .button {
-            display: inline-block;
-            padding: 10px 16px;
-            background: #2563eb;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-        }
 
-        .button:hover {
-            background: #1d4ed8;
-        }
 
-        .button-secondary {
-            background: #6b7280;
-        }
 
-        .button-secondary:hover {
-            background: #4b5563;
-        }
 
         .card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             overflow-x: auto;
         }
 
@@ -130,9 +72,6 @@
             align-items: end;
         }
 
-        .filter-actions .button {
-            white-space: nowrap;
-        }
 
         /*
          * Results information
@@ -149,6 +88,9 @@
         .table-wrapper {
             width: 100%;
             overflow-x: auto;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
         }
 
         table {
@@ -157,23 +99,11 @@
             min-width: 1100px;
         }
 
-        th,
         td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
             white-space: nowrap;
-            vertical-align: middle;
         }
 
-        th {
-            background: #f3f4f6;
-            font-weight: 600;
-        }
 
-        tr:hover {
-            background: #f9fafb;
-        }
 
         /*
          * Badges
@@ -241,9 +171,6 @@
             font-weight: 600;
         }
 
-        small {
-            color: #666;
-        }
 
         /*
          * Empty state
@@ -346,14 +273,7 @@
         }
 
         @media (max-width: 600px) {
-            body {
-                padding: 15px;
-            }
 
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
 
             .filters {
                 grid-template-columns: 1fr;
@@ -363,10 +283,6 @@
                 align-items: stretch;
             }
 
-            .filter-actions .button {
-                flex: 1;
-                text-align: center;
-            }
 
             .pagination-wrapper {
                 flex-direction: column;
@@ -380,19 +296,10 @@
             }
         }
     </style>
-</head>
 
-<body>
-
-<div class="system-shell">
-
-    @include('layouts.sidebar')
-
-    <main class="system-main">
-        <div class="container">
 
     {{-- Header --}}
-    <div class="header">
+    <div class="page-header">
 
         <div>
             <h1>
@@ -596,14 +503,14 @@
 
                 <button
                     type="submit"
-                    class="button"
+                    class="btn btn-primary"
                 >
                     Search
                 </button>
 
                 <a
                     href="{{ route('inventory-transactions.index') }}"
-                    class="button button-secondary"
+                    class="btn btn-secondary"
                 >
                     Reset
                 </a>
@@ -890,7 +797,7 @@
 
                 <a
                     href="{{ route('inventory-transactions.index') }}"
-                    class="button"
+                    class="btn btn-primary"
                 >
                     Clear Filters
                 </a>
@@ -1036,9 +943,4 @@
 
     </div>
 
-        </div>
-    </main>
-</div>
-
-</body>
-</html>
+@endsection

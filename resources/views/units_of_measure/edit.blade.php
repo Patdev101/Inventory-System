@@ -4,7 +4,12 @@
 
 @section('content')
 <div class="container">
-    <h1>Edit Unit of Measure</h1>
+    <div class="page-header">
+        <div>
+            <h1>Edit Unit of Measure</h1>
+            <p>Change the name or code of this unit.</p>
+        </div>
+    </div>
 
     @if ($errors->any())
         <div class="error" style="margin-bottom: 20px;">

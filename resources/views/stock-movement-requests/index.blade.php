@@ -83,6 +83,7 @@
 
 <style>
     .stock-request-card { margin-bottom: 14px; }
+    .stock-request-card p { margin: 10px 0 12px; }
     .stock-request-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
     .stock-request-header h2 { margin: 0 0 5px; font-size: 18px; }
     .stock-request-meta { color: #64748b; font-size: 13px; }

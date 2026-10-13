@@ -201,7 +201,7 @@
 
         <a
             href="{{ route('inventories.index') }}"
-            class="btn btn-primary"
+            class="btn btn-secondary"
         >
             Back to Inventory
         </a>

@@ -2111,6 +2111,147 @@
 
 
             {{-- =================================================
+                 NEEDS ATTENTION
+                 What this person should deal with next, each with
+                 the one button that takes them there.
+            ================================================== --}}
+
+            <style>
+
+                .attention {
+                    margin-bottom: 24px;
+                    padding: 0;
+                    background: #fff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+                    overflow: hidden;
+                }
+
+                .attention-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    padding: 14px 20px;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+
+                .attention-header h2 {
+                    margin: 0;
+                }
+
+                .attention-count {
+                    color: #64748b;
+                    font-size: 13px;
+                }
+
+                .attention-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                    padding: 14px 20px;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+
+                .attention-item:last-child {
+                    border-bottom: 0;
+                }
+
+                .attention-dot {
+                    width: 9px;
+                    height: 9px;
+                    border-radius: 50%;
+                    flex: 0 0 9px;
+                    background: #94a3b8;
+                }
+
+                .attention-dot.tone-danger { background: #dc2626; }
+                .attention-dot.tone-warning { background: #d97706; }
+                .attention-dot.tone-info { background: #2563eb; }
+
+                .attention-text {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .attention-title {
+                    display: block;
+                    color: #0f172a;
+                    font-size: 14.5px;
+                    font-weight: 600;
+                }
+
+                .attention-detail {
+                    display: block;
+                    margin-top: 2px;
+                    color: #64748b;
+                    font-size: 13px;
+                }
+
+                .attention-empty {
+                    padding: 18px 20px;
+                    color: #166534;
+                    font-size: 14px;
+                }
+
+                @media (max-width: 600px) {
+
+                    .attention-item {
+                        flex-wrap: wrap;
+                    }
+
+                    .attention-item .btn {
+                        margin-left: 23px;
+                    }
+                }
+
+            </style>
+
+            <section class="attention" aria-labelledby="attention-heading">
+
+                <div class="attention-header">
+                    <h2 id="attention-heading">Needs attention</h2>
+
+                    @if (count($attentionItems))
+                        <span class="attention-count">
+                            {{ count($attentionItems) }} {{ count($attentionItems) === 1 ? 'thing' : 'things' }} to do
+                        </span>
+                    @endif
+                </div>
+
+                @forelse ($attentionItems as $attentionItem)
+
+                    <div class="attention-item">
+
+                        <span class="attention-dot tone-{{ $attentionItem['tone'] }}"></span>
+
+                        <span class="attention-text">
+                            <span class="attention-title">{{ $attentionItem['title'] }}</span>
+                            <span class="attention-detail">{{ $attentionItem['detail'] }}</span>
+                        </span>
+
+                        <a
+                            href="{{ $attentionItem['url'] }}"
+                            class="btn {{ $loop->first ? 'btn-primary' : 'btn-secondary' }}"
+                        >
+                            {{ $attentionItem['action'] }}
+                        </a>
+
+                    </div>
+
+                @empty
+
+                    <div class="attention-empty">
+                        You're all caught up. Nothing needs your attention right now.
+                    </div>
+
+                @endforelse
+
+            </section>
+
+
+            {{-- =================================================
                  QUICK ACTIONS
             ================================================== --}}
 
@@ -2325,7 +2466,7 @@
                     </div>
 
                     <div class="stat-description">
-                        Product/location records
+                        Stock records across locations
                     </div>
 
                 </div>
@@ -2359,7 +2500,7 @@
                     </div>
 
                     <div class="stat-description">
-                        Base units
+                        Total units on hand
                     </div>
 
                 </div>
@@ -2376,7 +2517,7 @@
                     </div>
 
                     <div class="stat-description">
-                        Audit records
+                        Stock movements recorded
                     </div>
 
                 </div>
@@ -2404,7 +2545,7 @@
                     </div>
 
                     <div class="stock-alert-summary-description">
-                        Inventory records requiring attention
+                        Stock records that need attention
                     </div>
 
                 </div>

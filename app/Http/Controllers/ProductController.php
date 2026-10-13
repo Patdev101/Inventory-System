@@ -74,6 +74,8 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+        $this->ensureBaseUnitIncluded($request);
+
         $validated = $request->validate([
             'product_category_id' => [
                 'required',
@@ -300,6 +302,8 @@ class ProductController extends Controller
         Request $request,
         Product $product
     ) {
+        $this->ensureBaseUnitIncluded($request);
+
         $validated = $request->validate([
             'product_category_id' => [
                 'required',
@@ -888,6 +892,31 @@ class ProductController extends Controller
                         'The base unit must have a conversion factor of 1.',
                 ]);
             }
+        }
+    }
+
+    /**
+     * The counting (base) unit is implied: the form no longer shows it as a
+     * row of its own, so make sure it is in the unit list, with a factor of 1,
+     * before the list is validated and saved.
+     */
+    private function ensureBaseUnitIncluded(Request $request): void
+    {
+        $baseUnitId = $request->input('base_unit_id');
+
+        if (!$baseUnitId) {
+            return;
+        }
+
+        $units = (array) $request->input('units', []);
+
+        $alreadyThere = collect($units)->contains(
+            fn ($unit) => (string) ($unit['unit_of_measure_id'] ?? '') === (string) $baseUnitId
+        );
+
+        if (!$alreadyThere) {
+            $units[] = ['unit_of_measure_id' => $baseUnitId, 'conversion_factor' => 1];
+            $request->merge(['units' => array_values($units)]);
         }
     }
 }

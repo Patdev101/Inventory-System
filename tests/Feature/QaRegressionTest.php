@@ -435,6 +435,34 @@ class QaRegressionTest extends TestCase
         $this->assertDatabaseCount('purchase_order_emails', 0);
     }
 
+    public function test_the_counting_unit_is_saved_even_when_the_form_only_sends_other_units(): void
+    {
+        $company = $this->makeCompany();
+        $category = $this->makeCategory();
+        $piece = $this->makeUnit(['name' => 'Piece', 'code' => 'PCS']);
+        $box = $this->makeUnit(['name' => 'Box', 'code' => 'BOX']);
+
+        $this->actingAs($this->makeUser(User::ROLE_ADMIN))->post(route('products.store'), [
+            'product_category_id' => $category->id,
+            'company_id' => $company->id,
+            'name' => 'Counted In Pieces',
+            'base_unit_id' => $piece->id,
+            'reorder_point' => 0,
+            'is_active' => '1',
+            'pricing_method' => 'manual',
+            'selling_price' => 10,
+            // The counting unit is implied now: the form lists only the extra unit.
+            'units' => [['unit_of_measure_id' => $box->id, 'conversion_factor' => 12]],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('products.index'));
+
+        $product = \App\Models\Product::where('name', 'COUNTED IN PIECES')->firstOrFail();
+        $factors = $product->productUnits()->pluck('conversion_factor', 'unit_of_measure_id');
+
+        $this->assertCount(2, $factors);
+        $this->assertEquals(1, (float) $factors[$piece->id]);
+        $this->assertEquals(12, (float) $factors[$box->id]);
+    }
+
     private function orderedPurchaseOrder(User $creator, float $qty): PurchaseOrder
     {
         $company = $this->makeCompany();

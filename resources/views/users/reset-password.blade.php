@@ -4,9 +4,14 @@
 
 @section('content')
 
-<div class="card">
+<div class="page-header">
+    <div>
+        <h1>Reset Password</h1>
+        <p>Set a new password for this account.</p>
+    </div>
+</div>
 
-    <h1>Reset Password</h1>
+<div class="card">
 
     <p style="color: #6b7280;">
         User: <strong>{{ $user->name }}</strong><br>

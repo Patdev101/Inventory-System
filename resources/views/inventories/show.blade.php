@@ -186,7 +186,7 @@
         @if (auth()->user()->hasRole('admin', 'manager', 'staff'))
         <a
             href="{{ route('inventories.edit', $inventory) }}"
-            class="btn btn-secondary"
+            class="btn btn-primary"
         >
             Edit
         </a>
@@ -194,7 +194,7 @@
 
         <a
             href="{{ route('inventories.index') }}"
-            class="btn btn-primary"
+            class="btn btn-secondary"
         >
             Back to Inventory
         </a>

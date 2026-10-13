@@ -4,7 +4,12 @@
 
 @section('content')
 <div class="container">
-    <h1>Unit of Measure Details</h1>
+    <div class="page-header">
+        <div>
+            <h1>Unit of Measure Details</h1>
+            <p>The name and code of this unit.</p>
+        </div>
+    </div>
 
     <div class="card">
         <div class="form-group">

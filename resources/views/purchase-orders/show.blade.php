@@ -4,7 +4,7 @@
 
 @section('content')
 
-<style> .po-show-page { max-width: 1180px; margin: 0 auto; padding: 20px; color: #334155; }
+<style> .po-show-page { color: #334155; }
 .po-show-header {
     display: flex;
     justify-content: space-between;
@@ -39,12 +39,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 40px;
-    padding: 9px 16px;
-    border-radius: 7px;
+    min-height: 36px;
+    padding: 7px 14px;
+    border-radius: 6px;
     border: 1px solid transparent;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13.5px;
+    font-weight: 500;
     text-decoration: none !important;
     cursor: pointer;
     box-sizing: border-box;
@@ -85,62 +85,14 @@
 }
 
 .po-btn-secondary {
-    background: #e5e7eb;
-    color: #111827 !important;
-    border-color: #d1d5db;
-}
-
-.po-btn:disabled {
-    opacity: .55;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-.email-status-box {
-    margin-top: 15px;
-    padding: 12px 15px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-}
-
-.email-status-box.sent {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
-}
-
-.email-status-box.not-sent {
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    color: #9a3412;
-}
-
-.email-status-icon {
-    flex: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 800;
-    color: #fff;
-}
-
-.email-status-box.sent .email-status-icon {
-    background: #16a34a;
-}
-
-.email-status-box.not-sent .email-status-icon {
-    background: #ea580c;
+    background: #fff;
+    color: #334155 !important;
+    border-color: #cbd5e1;
 }
 
 .po-btn-secondary:hover {
-    background: #d1d5db;
+    background: #f8fafc;
+    border-color: #94a3b8;
 }
 
 /* Alerts */

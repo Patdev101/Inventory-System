@@ -4,9 +4,14 @@
 
 @section('content')
 
-<div class="card">
+<div class="page-header">
+    <div>
+        <h1>Edit User</h1>
+        <p>Change this person's details, role and location.</p>
+    </div>
+</div>
 
-    <h1>Edit User</h1>
+<div class="card">
 
     <form action="{{ route('users.update', $user) }}" method="POST">
 
@@ -120,7 +125,7 @@
 </div>
 
 
-<div class="card">
+<div class="card" style="margin-top: 20px;">
 
     <h2>Password</h2>
 

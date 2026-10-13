@@ -62,8 +62,8 @@
         place-items: center;
         flex: 0 0 auto;
         border-radius: 8px;
-        background: linear-gradient(135deg, #2563eb, #3b82f6);
-        font-size: 16px;
+        background: #2563eb;
+        color: white;
     }
 
     .system-brand-title {
@@ -77,7 +77,7 @@
         display: block;
         margin-top: 1px;
         color: #9ca3af;
-        font-size: 10px;
+        font-size: 11px;
     }
 
     /*
@@ -109,15 +109,13 @@
     }
 
     .system-nav-group + .system-nav-group {
-        margin-top: 10px;
-        padding-top: 10px;
-        border-top: 1px solid #1f2937;
+        margin-top: 14px;
     }
 
     .system-nav-label {
         padding: 4px 10px 6px;
-        color: #6b7280;
-        font-size: 10px;
+        color: #7c8799;
+        font-size: 11px;
         font-weight: 700;
         letter-spacing: .8px;
         text-transform: uppercase;
@@ -140,8 +138,9 @@
         border-radius: 7px;
         color: #cbd5e1;
         text-decoration: none;
-        font-size: 12.5px;
-        font-weight: 500;
+        font-size: 13.5px;
+        font-weight: 400;
+        line-height: 1.3;
     }
 
     .system-link:hover {
@@ -150,17 +149,30 @@
     }
 
     .system-link.active {
-        background: linear-gradient(90deg, #1d4ed8, #2563eb);
+        background: #2563eb;
         color: white;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, .2);
+        font-weight: 600;
     }
 
     .system-link-icon {
         width: 18px;
-        color: #94a3b8;
-        text-align: center;
-        font-size: 13px;
+        height: 18px;
+        display: grid;
+        place-items: center;
+        color: #8391a7;
         flex: 0 0 18px;
+    }
+
+    .system-link-icon svg,
+    .system-brand-icon svg,
+    .system-logout svg {
+        width: 17px;
+        height: 17px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
     }
 
     .system-link.active .system-link-icon,
@@ -189,15 +201,6 @@
         color: #1d4ed8;
     }
 
-    /* PURCHASE ORDER SPECIAL LINK */
-    .system-link-purchase {
-        border: 1px solid rgba(59, 130, 246, .18);
-        background: rgba(37, 99, 235, .06);
-    }
-
-    .system-link-purchase:hover {
-        background: #1f2937;
-    }
 
     /* USER AREA */
     .system-user {
@@ -244,7 +247,7 @@
         overflow: hidden;
         margin-top: 2px;
         color: #94a3b8;
-        font-size: 9.5px;
+        font-size: 11.5px;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -260,7 +263,8 @@
         background: transparent;
         color: #cbd5e1;
         cursor: pointer;
-        font-size: 11.5px;
+        font-family: inherit;
+        font-size: 13px;
         text-align: left;
     }
 
@@ -331,7 +335,7 @@
         class="system-brand"
     >
         <span class="system-brand-icon">
-            📦
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg>
         </span>
 
         <span>
@@ -383,7 +387,7 @@
              */
             $stockAlertsCount = $user
                 ? \Illuminate\Support\Facades\Cache::remember(
-                    'nav:stock-alerts',
+                    'nav:stock-alerts:' . $user->id,
                     $badgeTtl,
                     fn () => \App\Models\StockAlert::whereIn('status', ['open', 'acknowledged'])->count()
                 )
@@ -404,7 +408,7 @@
                 class_exists(\App\Models\PurchaseOrder::class)
             ) {
                 $purchaseOrdersCount = \Illuminate\Support\Facades\Cache::remember(
-                    'nav:open-purchase-orders',
+                    'nav:open-purchase-orders:' . $user->id,
                     $badgeTtl,
                     fn () => \App\Models\PurchaseOrder::whereIn(
                         'status',
@@ -420,13 +424,39 @@
             }
 
 
+            /*
+             * Menu icons: one consistent line-drawn set, kept here so the
+             * sidebar needs no icon font or extra download.
+             */
+            $systemNavigationIcons = [
+                'home' => '<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
+                'box' => '<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+                'tag' => '<path d="M3 12V4h8l10 10-8 8zM7.5 8.5h.01"/>',
+                'ruler' => '<path d="M3 17L17 3l4 4L7 21zM8 12l2 2M11 9l2 2M14 6l2 2"/>',
+                'stock' => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+                'move' => '<path d="M7 7h13l-3-3M17 17H4l3 3"/>',
+                'check' => '<path d="M9 11l3 3 8-8M20 12v7H4V5h11"/>',
+                'history' => '<path d="M3 12a9 9 0 109-9 9 9 0 00-7 3.4M3 4v4h4M12 7v5l3 2"/>',
+                'list' => '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+                'alert' => '<path d="M12 3l10 18H2zM12 10v5M12 18h.01"/>',
+                'cart' => '<path d="M3 4h2l2.5 11h10L20 7H6M9 20h.01M17 20h.01"/>',
+                'mail' => '<path d="M3 6h18v12H3zM3 7l9 6 9-6"/>',
+                'approve' => '<path d="M12 21a9 9 0 100-18 9 9 0 000 18zM8 12l3 3 5-6"/>',
+                'pin' => '<path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.500 7 12 7 12zM12 11.5a2.500 2.500 0 100-5 2.500 2.500 0 000 5z"/>',
+                'building' => '<path d="M4 21V4h10v17M14 9h6v12M8 8h2M8 12h2M8 16h2M17 13h.01M17 17h.01M3 21h18"/>',
+                'users' => '<path d="M16 20v-1a4 4 0 00-4-4H7a4 4 0 00-4 4v1M9.500 11a3.500 3.500 0 100-7 3.500 3.500 0 000 7zM21 20v-1a4 4 0 00-3-3.900M16 4.100a3.500 3.500 0 010 6.800"/>',
+                'chart' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+                'gear' => '<path d="M12 15a3 3 0 100-6 3 3 0 000 6zM19 12l2-1-2-4-2 1a7 7 0 00-2-1l-.500-2h-4L10 7a7 7 0 00-2 1L6 7 4 11l2 1a7 7 0 000 2l-2 1 2 4 2-1a7 7 0 002 1l.500 2h4l.500-2a7 7 0 002-1l2 1 2-4-2-1a7 7 0 000-2z"/>',
+            ];
+
+
             $systemNavigationGroups = [
 
                 'Overview' => [
                     [
                         'route' => 'dashboard',
                         'label' => 'Dashboard',
-                        'icon' => '▦',
+                        'icon' => 'home',
                         'match' => 'dashboard',
                     ],
                 ],
@@ -435,14 +465,14 @@
                     [
                         'route' => 'products.index',
                         'label' => 'Products',
-                        'icon' => '◫',
+                        'icon' => 'box',
                         'match' => 'products.*',
                     ],
 
                     [
                         'route' => 'product-categories.index',
                         'label' => 'Product Categories',
-                        'icon' => '◇',
+                        'icon' => 'tag',
                         'match' => 'product-categories.*',
                         'roles' => ['admin'],
                     ],
@@ -450,7 +480,7 @@
                     [
                         'route' => 'units-of-measure.index',
                         'label' => 'Units of Measure',
-                        'icon' => '#',
+                        'icon' => 'ruler',
                         'match' => 'units-of-measure.*',
                         'roles' => ['admin'],
                     ],
@@ -460,14 +490,14 @@
                     [
                         'route' => 'inventories.index',
                         'label' => 'Inventory',
-                        'icon' => '▤',
+                        'icon' => 'stock',
                         'match' => 'inventories.*',
                     ],
 
                     [
                         'route' => 'inventory-transfers.create',
                         'label' => 'Transfer Inventory',
-                        'icon' => '⇄',
+                        'icon' => 'move',
                         'match' => 'inventory-transfers.create',
                         'roles' => ['admin', 'manager'],
                     ],
@@ -475,7 +505,7 @@
                     [
                         'route' => 'inventory-transfers.pending-audits',
                         'label' => 'Audit Transfers',
-                        'icon' => '✔',
+                        'icon' => 'check',
                         'match' => 'inventory-transfers.pending-audits',
                         'badge' => $pendingAuditsCount,
                     ],
@@ -483,21 +513,21 @@
                     [
                         'route' => 'inventory-transfers.index',
                         'label' => 'Transfer History',
-                        'icon' => '↔',
+                        'icon' => 'history',
                         'match' => 'inventory-transfers.index|inventory-transfers.show',
                     ],
 
                     [
                         'route' => 'inventory-transactions.index',
                         'label' => 'Transactions',
-                        'icon' => '≡',
+                        'icon' => 'list',
                         'match' => 'inventory-transactions.*',
                     ],
 
                     [
                         'route' => 'stock-alerts.index',
                         'label' => 'Stock Alerts',
-                        'icon' => '!',
+                        'icon' => 'alert',
                         'match' => 'stock-alerts.*',
                         'badge' => $stockAlertsCount,
                     ],
@@ -507,7 +537,7 @@
                     [
                         'route' => 'purchase-orders.index',
                         'label' => 'Purchase Orders',
-                        'icon' => '🛒',
+                        'icon' => 'cart',
                         'match' => 'purchase-orders.*',
                         'roles' => ['admin', 'manager'],
                         'badge' => $purchaseOrdersCount,
@@ -517,14 +547,14 @@
                     [
                         'route' => 'purchase-order-emails.index',
                         'label' => 'Sent Emails',
-                        'icon' => '✉',
+                        'icon' => 'mail',
                         'match' => 'purchase-order-emails.*',
                     ],
 
                     [
                         'route' => 'stock-movement-requests.index',
                         'label' => 'Stock Approvals',
-                        'icon' => '✓',
+                        'icon' => 'approve',
                         'match' => 'stock-movement-requests.*',
                         'roles' => ['admin', 'manager'],
                     ],
@@ -532,7 +562,7 @@
                     [
                         'route' => 'stock-movement-requests.index',
                         'label' => 'My Requests',
-                        'icon' => '✓',
+                        'icon' => 'approve',
                         'match' => 'stock-movement-requests.*',
                         'roles' => ['staff'],
                     ],
@@ -542,14 +572,14 @@
                     [
                         'route' => 'locations.index',
                         'label' => 'Locations',
-                        'icon' => '◉',
+                        'icon' => 'pin',
                         'match' => 'locations.*',
                     ],
 
                     [
                         'route' => 'companies.index',
                         'label' => 'Companies',
-                        'icon' => '◎',
+                        'icon' => 'building',
                         'match' => 'companies.*',
                         'roles' => ['admin'],
                     ],
@@ -557,7 +587,7 @@
                     [
                         'route' => 'users.index',
                         'label' => 'Users',
-                        'icon' => '◈',
+                        'icon' => 'users',
                         'match' => 'users.*',
                         'roles' => ['admin', 'manager'],
                     ],
@@ -567,7 +597,7 @@
                     [
                         'route' => 'reports.index',
                         'label' => 'Reports',
-                        'icon' => '▥',
+                        'icon' => 'chart',
                         'match' => 'reports.*',
                     ],
                 ],
@@ -576,7 +606,7 @@
                     [
                         'route' => 'account.edit',
                         'label' => 'My Account',
-                        'icon' => '⚙',
+                        'icon' => 'gear',
                         'match' => 'account.*',
                     ],
                 ],
@@ -640,7 +670,7 @@
                             >
 
                                 <span class="system-link-icon">
-                                    {{ $item['icon'] }}
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">{!! $systemNavigationIcons[$item['icon']] ?? '' !!}</svg>
                                 </span>
 
                                 <span>
@@ -705,7 +735,7 @@
                 type="submit"
                 class="system-logout"
             >
-                <span>↪</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5V3h4M16 17l5-5-5-5M21 12H9"/></svg>
                 <span>Sign Out</span>
             </button>
 

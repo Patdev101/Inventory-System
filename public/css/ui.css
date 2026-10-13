@@ -1,0 +1,778 @@
+/*
+ | Shared look for every signed-in page.
+ |
+ | One place for type, buttons, tables, cards and form fields so pages match
+ | each other. Loaded from layouts/app.blade.php before a page's own <style>,
+ | so a page can still add what is special to it. Rules that must be the same
+ | everywhere are written under ".system-shell" so a page cannot drift away
+ | from them by accident.
+ |
+ | Plain static file on purpose: it deploys with the code, no build step.
+ */
+
+:root {
+    --ui-bg: #f5f7fb;
+    --ui-surface: #ffffff;
+    --ui-subtle: #f8fafc;
+    --ui-border: #e2e8f0;
+    --ui-border-strong: #cbd5e1;
+    --ui-heading: #0f172a;
+    --ui-text: #334155;
+    --ui-muted: #64748b;
+    --ui-primary: #2563eb;
+    --ui-primary-dark: #1d4ed8;
+    --ui-success: #15803d;
+    --ui-success-dark: #166534;
+    --ui-danger: #dc2626;
+    --ui-danger-dark: #b91c1c;
+    --ui-radius: 6px;
+    --ui-radius-lg: 10px;
+    --ui-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+    --ui-font: "Segoe UI", Inter, system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--ui-font);
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--ui-bg);
+    color: var(--ui-text);
+    -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+
+/* ---------------------------------------------------------------------
+   Page
+--------------------------------------------------------------------- */
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 20px 50px;
+}
+
+/* A page that wraps its content in a second .container must not be indented twice. */
+.system-shell .system-main .container .container {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+}
+
+.page-header,
+.system-shell .system-main .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+/* Colour is set here, on the plain tags, so a heading on a dark panel can still be white. */
+h1,
+h2,
+h3 {
+    color: var(--ui-heading);
+}
+
+.system-shell .system-main h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -.01em;
+}
+
+.system-shell .system-main h2 {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.system-shell .system-main .page-header h2 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -.01em;
+}
+
+.system-shell .system-main h3 {
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* The one-line description under a page title. */
+.system-shell .system-main h1 + p,
+.system-shell .system-main .page-header p {
+    margin: 4px 0 0;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--ui-muted);
+}
+
+a {
+    color: var(--ui-primary);
+}
+
+a:hover {
+    color: var(--ui-primary-dark);
+}
+
+
+/* ---------------------------------------------------------------------
+   Cards
+--------------------------------------------------------------------- */
+
+.card {
+    background: var(--ui-surface);
+    padding: 24px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    box-shadow: var(--ui-shadow);
+}
+
+/* Plain text and a section title inside a card keep their breathing room. */
+.system-shell .card > p {
+    margin: 0 0 14px;
+}
+
+.system-shell .card > h2:first-child {
+    margin: 0 0 8px;
+}
+
+/* A status label never breaks onto two lines. */
+.status-badge,
+.stock-status,
+.badge {
+    white-space: nowrap;
+}
+
+/* A card that only holds a table: let the table fill it instead of a box inside a box. */
+.system-shell .card:has(> .table-wrapper:only-child),
+.system-shell .card:has(> table:only-child) {
+    padding: 0;
+    overflow: hidden;
+}
+
+.system-shell .card > .table-wrapper:only-child {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+
+/* ---------------------------------------------------------------------
+   Buttons
+--------------------------------------------------------------------- */
+
+.btn,
+.system-shell .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 14px;
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.btn:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, .45);
+    outline-offset: 2px;
+}
+
+.btn-primary,
+.system-shell .btn-primary {
+    background: var(--ui-primary);
+    border-color: var(--ui-primary);
+    color: #fff;
+}
+
+.btn-primary:hover,
+.system-shell .btn-primary:hover {
+    background: var(--ui-primary-dark);
+    border-color: var(--ui-primary-dark);
+    color: #fff;
+}
+
+/* Secondary = quiet outline, so the one primary action on a page stands out. */
+.btn-secondary,
+.system-shell .btn-secondary {
+    background: #fff;
+    border-color: var(--ui-border-strong);
+    color: var(--ui-text);
+}
+
+.btn-secondary:hover,
+.system-shell .btn-secondary:hover {
+    background: var(--ui-subtle);
+    border-color: #94a3b8;
+    color: var(--ui-heading);
+}
+
+.btn-success,
+.system-shell .btn-success {
+    background: var(--ui-success);
+    border-color: var(--ui-success);
+    color: #fff;
+}
+
+.btn-success:hover,
+.system-shell .btn-success:hover {
+    background: var(--ui-success-dark);
+    border-color: var(--ui-success-dark);
+    color: #fff;
+}
+
+.btn-danger,
+.system-shell .btn-danger {
+    background: var(--ui-danger);
+    border-color: var(--ui-danger);
+    color: #fff;
+}
+
+.btn-danger:hover,
+.system-shell .btn-danger:hover {
+    background: var(--ui-danger-dark);
+    border-color: var(--ui-danger-dark);
+    color: #fff;
+}
+
+/* Buttons inside a table row are smaller, and "delete" is quiet until hovered. */
+.system-shell td .btn,
+.system-shell .btn-sm {
+    min-height: 30px;
+    padding: 4px 10px;
+    font-size: 13px;
+}
+
+.system-shell td .btn-danger {
+    background: #fff;
+    border-color: #fecaca;
+    color: var(--ui-danger-dark);
+}
+
+.system-shell td .btn-danger:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: var(--ui-danger-dark);
+}
+
+/* Buttons that older pages named differently: same look as the rest. */
+.system-shell .btn-search {
+    background: var(--ui-primary);
+    border-color: var(--ui-primary);
+    color: #fff;
+}
+
+.system-shell .btn-search:hover {
+    background: var(--ui-primary-dark);
+    border-color: var(--ui-primary-dark);
+}
+
+.system-shell .btn-reset {
+    background: #fff;
+    border-color: var(--ui-border-strong);
+    color: var(--ui-text);
+}
+
+.system-shell .btn-reset:hover {
+    background: var(--ui-subtle);
+    border-color: #94a3b8;
+    color: var(--ui-heading);
+}
+
+.system-shell .btn-warning {
+    background: #b45309;
+    border-color: #b45309;
+    color: #fff;
+}
+
+.system-shell .btn-warning:hover {
+    background: #92400e;
+    border-color: #92400e;
+    color: #fff;
+}
+
+/* "Save" and "Cancel" written side by side at the end of a form. */
+.system-shell form > .btn + .btn {
+    margin-left: 8px;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.actions form {
+    margin: 0;
+}
+
+/* Button loading state */
+
+.btn.is-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.btn.is-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 15px;
+    height: 15px;
+    margin: -7.5px 0 0 -7.5px;
+    border: 2px solid rgba(255, 255, 255, .4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btn-spin .6s linear infinite;
+}
+
+.btn-secondary.is-loading::after,
+.system-shell td .btn-danger.is-loading::after {
+    border: 2px solid rgba(15, 23, 42, .15);
+    border-top-color: #1e293b;
+}
+
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* ---------------------------------------------------------------------
+   Tables
+--------------------------------------------------------------------- */
+
+.table-wrapper {
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    overflow-x: auto;
+    box-shadow: var(--ui-shadow);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+th,
+td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ui-border);
+    text-align: left;
+    vertical-align: middle;
+}
+
+th,
+.system-shell .system-main th {
+    padding: 10px 16px;
+    background: var(--ui-subtle);
+    color: #475569;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+td,
+.system-shell .system-main td {
+    color: var(--ui-text);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.system-shell .system-main thead th {
+    white-space: nowrap;
+}
+
+tbody tr:hover {
+    background: var(--ui-subtle);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+/* ---------------------------------------------------------------------
+   Forms
+--------------------------------------------------------------------- */
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+label,
+.system-shell .system-main label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--ui-text);
+}
+
+/* Older pages wrote <label><strong>Name</strong></label><br>: same look as the rest. */
+.system-shell .system-main label strong {
+    font-weight: inherit;
+}
+
+.system-shell .system-main label + br {
+    display: none;
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--ui-border-strong);
+    border-radius: var(--ui-radius);
+    background: #fff;
+    color: var(--ui-heading);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+    width: auto;
+    padding: 0;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #94a3b8;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--ui-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+    background: #f1f5f9;
+    color: var(--ui-muted);
+    cursor: not-allowed;
+}
+
+textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+/*
+ * A plain form in a card: the card is only as wide as the form needs, so the
+ * fields fill it instead of leaving half the card empty. A card that also
+ * holds a table (transfer checklist) stays full width and keeps short fields.
+ */
+.system-shell .card:has(> form > .form-group):not(:has(table)):not(.settings-card) {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/*
+ * On those pages the title row and anything else beside the card (error box,
+ * a second card) line up with it as one centred column, so the "Back" button
+ * sits at the card's corner instead of the far edge of the screen.
+ */
+.system-shell div:has(> .card:has(> form > .form-group):not(:has(table)):not(.settings-card)) > :is(.page-header, .card, .alert-error, .alert-success, .error) {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.system-shell .card:has(table) > form > .form-group {
+    max-width: 640px;
+}
+
+.system-shell .system-main small {
+    font-size: 12.5px;
+    color: var(--ui-muted);
+}
+
+
+/* ---------------------------------------------------------------------
+   Messages
+--------------------------------------------------------------------- */
+
+.alert-success {
+    background: #f0fdf4;
+    color: #166534;
+    padding: 12px 16px;
+    border-radius: var(--ui-radius);
+    border: 1px solid #bbf7d0;
+    margin-bottom: 20px;
+}
+
+.alert-error {
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 12px 16px;
+    border-radius: var(--ui-radius);
+    border: 1px solid #fecaca;
+    margin-bottom: 20px;
+}
+
+.error {
+    color: var(--ui-danger);
+    margin-top: 5px;
+    font-size: 13px;
+}
+
+.empty-state {
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    padding: 45px 25px;
+    text-align: center;
+    color: var(--ui-muted);
+}
+
+.empty-state p {
+    margin: 0 0 20px;
+    font-size: 15px;
+}
+
+/* A picture that failed to load is swapped for a plain grey tile (see layouts/app). */
+img.img-missing {
+    background: #f1f5f9;
+    object-fit: contain;
+}
+
+
+/* ---------------------------------------------------------------------
+   Toast notifications
+--------------------------------------------------------------------- */
+
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 380px;
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 9px;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, .15);
+    font-size: 13.5px;
+    line-height: 1.4;
+    animation: toast-in .25s ease;
+}
+
+.toast.toast-hiding {
+    animation: toast-out .2s ease forwards;
+}
+
+.toast-success {
+    background: #16a34a;
+    color: white;
+}
+
+.toast-error {
+    background: #dc2626;
+    color: white;
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.toast-close {
+    margin-left: auto;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    opacity: .75;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 0 0 8px;
+}
+
+.toast-close:hover {
+    opacity: 1;
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(24px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(24px); }
+}
+
+
+/* ---------------------------------------------------------------------
+   Confirm modal
+--------------------------------------------------------------------- */
+
+.confirm-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .5);
+    z-index: 4000;
+    align-items: center;
+    justify-content: center;
+}
+
+.confirm-modal-overlay.is-open {
+    display: flex;
+}
+
+.confirm-modal-box {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
+}
+
+.confirm-modal-box h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ui-heading);
+}
+
+.confirm-modal-box p {
+    margin: 0 0 20px;
+    color: var(--ui-muted);
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+
+/* ---------------------------------------------------------------------
+   Dev/test mode banner
+--------------------------------------------------------------------- */
+
+.dev-mode-banner {
+    background: repeating-linear-gradient(
+        135deg,
+        #78350f,
+        #78350f 10px,
+        #92400e 10px,
+        #92400e 20px
+    );
+    color: #fef3c7;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-align: center;
+    padding: 7px 12px;
+    letter-spacing: .02em;
+}
+
+
+/* ---------------------------------------------------------------------
+   Pagination
+--------------------------------------------------------------------- */
+
+nav[aria-label="Pagination Navigation"] {
+    display: flex;
+    justify-content: center;
+}
+
+
+/* ---------------------------------------------------------------------
+   Small screens
+--------------------------------------------------------------------- */
+
+@media (max-width: 850px) {
+
+    .container {
+        padding: 24px 15px 40px;
+    }
+
+    .page-header,
+    .system-shell .system-main .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+}
+
+@media (max-width: 600px) {
+
+    th,
+    td,
+    .system-shell .system-main th {
+        padding: 10px;
+    }
+
+    /*
+     * Safety net: makes every table scroll horizontally on a narrow screen
+     * even if a page's own markup forgot to wrap it in .table-wrapper.
+     */
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Keep a row's buttons on one line; the table scrolls sideways instead. */
+    td .actions {
+        flex-wrap: nowrap;
+    }
+
+}

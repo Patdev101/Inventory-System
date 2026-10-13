@@ -1,41 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
+@extends('layouts.app')
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+@section('title')
+    Transaction #{{ $transaction->id }}
+@endsection
 
-    <title>Transaction #{{ $transaction->id }}</title>
+@section('content')
 
     <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f5f5f5;
-            margin: 0;
-            padding: 30px;
-            color: #222;
-        }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
 
         .card {
-            background: white;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+            overflow-x: auto;
         }
 
         table {
@@ -43,26 +20,11 @@
             border-collapse: collapse;
         }
 
-        th,
         td {
-            padding: 14px;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
+            white-space: nowrap;
         }
 
-        th {
-            width: 220px;
-            background: #f3f4f6;
-        }
 
-        .button {
-            display: inline-block;
-            padding: 10px 16px;
-            background: #2563eb;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-        }
 
         .badge {
             display: inline-block;
@@ -87,18 +49,9 @@
             font-style: italic;
         }
     </style>
-</head>
 
-<body>
 
-<div class="system-shell">
-
-    @include('layouts.sidebar')
-
-    <main class="system-main">
-        <div class="container">
-
-    <div class="header">
+    <div class="page-header">
 
         <h1>
             Transaction #{{ $transaction->id }}
@@ -292,9 +245,4 @@
 
     </div>
 
-        </div>
-    </main>
-</div>
-
-</body>
-</html>
+@endsection

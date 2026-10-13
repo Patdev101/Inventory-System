@@ -4,9 +4,14 @@
 
 @section('content')
 
-<div class="card">
+<div class="page-header">
+    <div>
+        <h1>Add User</h1>
+        <p>Create a sign-in for a new member of your team.</p>
+    </div>
+</div>
 
-    <h1>Add User</h1>
+<div class="card">
 
     <form action="{{ route('users.store') }}" method="POST">
 

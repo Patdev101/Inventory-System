@@ -4,12 +4,17 @@
 
 @section('content')
 
-<div class="container">
+<div>
 
-    <h1>Add Inventory</h1>
+    <div class="page-header">
+        <div>
+            <h1>Add Inventory</h1>
+            <p>Record stock of a product at one of your locations.</p>
+        </div>
+    </div>
 
     @if ($errors->any())
-        <div style="color: red; margin-bottom: 15px;">
+        <div class="alert-error">
             <ul>
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -18,11 +23,13 @@
         </div>
     @endif
 
+    <div class="card">
+
     <form action="{{ route('inventories.store') }}" method="POST">
         @csrf
 
         {{-- Company --}}
-        <div class="form-group" style="margin-bottom: 15px;">
+        <div class="form-group">
             <label for="company_id">
                 <strong>Company</strong>
             </label>
@@ -31,7 +38,6 @@
                 id="company_id"
                 name="company_id_filter"
                 required
-                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
             >
                 <option value="">-- Select Company --</option>
 
@@ -45,7 +51,7 @@
                 @endforeach
             </select>
 
-            <small style="color: #6b7280;">
+            <small>
                 Not all companies carry the same products or locations —
                 choose a company first to narrow the choices below.
             </small>
@@ -53,7 +59,7 @@
 
 
         {{-- Product --}}
-        <div class="form-group" style="margin-bottom: 15px;">
+        <div class="form-group">
             <label for="product_id">
                 <strong>Product</strong>
             </label>
@@ -63,7 +69,6 @@
                 name="product_id"
                 required
                 disabled
-                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
             >
                 <option value="">-- Select Company First --</option>
             </select>
@@ -71,7 +76,7 @@
 
 
         {{-- Location --}}
-        <div class="form-group" style="margin-bottom: 15px;">
+        <div class="form-group">
             <label for="location_id">
                 <strong>Location</strong>
             </label>
@@ -81,7 +86,6 @@
                 name="location_id"
                 required
                 disabled
-                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
             >
                 <option value="">-- Select Company First --</option>
             </select>
@@ -89,7 +93,7 @@
 
 
         {{-- Unit of Measure --}}
-        <div class="form-group" style="margin-bottom: 15px;">
+        <div class="form-group">
             <label for="product_unit_id">
                 <strong>Unit of Measure</strong>
             </label>
@@ -99,7 +103,6 @@
                 name="product_unit_id"
                 required
                 disabled
-                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
             >
                 <option value="">-- Select Product First --</option>
             </select>
@@ -107,7 +110,7 @@
 
 
         {{-- Quantity --}}
-        <div class="form-group" style="margin-bottom: 15px;">
+        <div class="form-group">
             <label for="quantity">
                 <strong>Quantity</strong>
             </label>
@@ -120,7 +123,6 @@
                 min="0.0001"
                 step="0.0001"
                 required
-                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px;"
             >
         </div>
 
@@ -129,7 +131,7 @@
         <div
             id="conversion-container"
             class="form-group"
-            style="margin-bottom: 15px; display: none;"
+            style="display: none;"
         >
             <label for="conversion_factor">
                 <strong>Conversion Factor</strong>
@@ -139,7 +141,7 @@
                 type="text"
                 id="conversion_factor"
                 readonly
-                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px; background-color: #f5f5f5;"
+                style="background-color: #f8fafc;"
             >
         </div>
 
@@ -148,7 +150,7 @@
         <div
             id="total-container"
             class="form-group"
-            style="margin-bottom: 15px; display: none;"
+            style="display: none;"
         >
             <label for="total_quantity">
                 <strong>Total Base Quantity</strong>
@@ -158,7 +160,7 @@
                 type="text"
                 id="total_quantity"
                 readonly
-                style="width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ccc; border-radius: 5px; background-color: #f5f5f5;"
+                style="background-color: #f8fafc;"
             >
         </div>
 
@@ -175,6 +177,8 @@
         </a>
 
     </form>
+
+    </div>
 </div>
 
 

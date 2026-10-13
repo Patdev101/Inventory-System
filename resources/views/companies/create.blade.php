@@ -17,7 +17,7 @@
     </a>
 </div>
 
-<div class="card" style="max-width: 640px; margin: 0 auto;">
+<div class="card">
 
     <form action="{{ route('companies.store') }}" method="POST">
 

@@ -17,7 +17,7 @@
     </a>
 </div>
 
-<div class="card" style="max-width: 640px; margin: 0 auto;">
+<div class="card">
 
     @if ($errors->any())
         <div class="alert-error">
@@ -87,7 +87,7 @@
         </div>
 
         <div class="actions" style="margin-top: 20px;">
-            <button type="submit" class="btn btn-success">
+            <button type="submit" class="btn btn-primary">
                 Save Location
             </button>
 

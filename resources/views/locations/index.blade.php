@@ -68,12 +68,12 @@
 
                         <td>
                             <div class="actions">
-                                <a href="{{ route('locations.show', $location) }}" class="btn btn-primary">
+                                <a href="{{ route('locations.show', $location) }}" class="btn btn-secondary">
                                     View
                                 </a>
 
                                 @if (auth()->user()->isAdmin())
-                                    <a href="{{ route('locations.edit', $location) }}" class="btn btn-secondary">
+                                    <a href="{{ route('locations.edit', $location) }}" class="btn btn-primary">
                                         Edit
                                     </a>
 

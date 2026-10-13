@@ -4,20 +4,23 @@
 
 @section('content')
 
-<div class="card">
-
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+<div class="page-header">
+    <div>
         <h1>Users</h1>
+        <p>People who can sign in, and the location each one works at.</p>
+    </div>
 
-        <div style="display: flex; gap: 10px;">
-            <a href="{{ route('account-audit-log.index') }}" class="btn btn-secondary">
+    <div class="actions">
+        <a href="{{ route('account-audit-log.index') }}" class="btn btn-secondary">
                 Audit Log
             </a>
             <a href="{{ route('users.create') }}" class="btn btn-primary">
                 + Add User
             </a>
-        </div>
     </div>
+</div>
+
+<div class="card">
 
     @if($users->count())
 
@@ -46,7 +49,7 @@
                         <td>
                             <div class="actions">
                                 @if ($user->id !== auth()->id())
-                                    <a href="{{ route('users.edit', $user) }}" class="btn btn-secondary">
+                                    <a href="{{ route('users.edit', $user) }}" class="btn btn-primary">
                                         Edit
                                     </a>
 
@@ -86,9 +89,11 @@
             </tbody>
         </table>
 
-        <div style="margin-top: 20px;">
-            {{ $users->links() }}
-        </div>
+        @if ($users->hasPages())
+            <div style="padding: 16px;">
+                {{ $users->links() }}
+            </div>
+        @endif
 
     @else
 

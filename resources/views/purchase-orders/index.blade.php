@@ -507,7 +507,7 @@
 
                             <a
                                 href="{{ route('purchase-orders.show', $purchaseOrder) }}"
-                                class="btn btn-primary"
+                                class="btn btn-secondary"
                             >
                                 View
                             </a>
@@ -516,7 +516,7 @@
 
                                 <a
                                     href="{{ route('purchase-orders.receive.form', $purchaseOrder) }}"
-                                    class="btn btn-secondary"
+                                    class="btn btn-primary"
                                 >
                                     Receive
                                 </a>

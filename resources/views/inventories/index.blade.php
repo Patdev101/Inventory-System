@@ -600,7 +600,7 @@
                                     'inventories.show',
                                     $inventory
                                 ) }}"
-                                class="btn btn-primary"
+                                class="btn btn-secondary"
                             >
                                 View
                             </a>
@@ -612,7 +612,7 @@
                                     'inventories.edit',
                                     $inventory
                                 ) }}"
-                                class="btn btn-secondary"
+                                class="btn btn-primary"
                             >
                                 Update
                             </a>

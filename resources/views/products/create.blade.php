@@ -56,6 +56,9 @@
 
         @csrf
 
+        <section class="form-section">
+            <h2>Basic information</h2>
+
 
         <div class="form-group">
 
@@ -150,22 +153,24 @@
         </div>
 
 
-        <hr>
+        </section>
+
+        <section class="form-section">
 
 
-        <h2>Base Unit</h2>
+        <h2>Step 1: What unit do you count this product in?</h2>
 
-        <p class="muted">
-            The base unit is the reference measurement used internally
-            for inventory calculations.
-        </p>
+        <p class="muted">Choose the smallest unit you handle, such as Piece, Gram or Milliliter. Stock and prices are kept per this unit; bigger units like Box or Kilogram are worked out from it.</p>
 
+
+        @php
+            // A new product starts counted in Piece (PCS); it can be changed.
+            $defaultBaseUnitId = $units->first(fn ($unit) => strtoupper((string) $unit->code) === 'PCS')?->id;
+        @endphp
 
         <div class="form-group">
 
-            <label for="base_unit_id">
-                Base Unit
-            </label>
+            <label for="base_unit_id">Counting unit (base unit)</label>
 
             <select
                 id="base_unit_id"
@@ -175,14 +180,14 @@
             >
 
                 <option value="">
-                    -- Select Base Unit --
+                    -- Choose the unit you count in --
                 </option>
 
                 @foreach ($units as $unit)
 
                     <option
                         value="{{ $unit->id }}"
-                        {{ old('base_unit_id') == $unit->id ? 'selected' : '' }}
+                        {{ (string) old('base_unit_id', $defaultBaseUnitId ?? '') === (string) $unit->id ? 'selected' : '' }}
                     >
 
                         {{ $unit->name }}
@@ -201,13 +206,9 @@
 
 
 
-        <h2>
-            Available Units
-        </h2>
+        <h2>Step 2: Other units you buy or sell it in</h2>
 
-        <p class="muted">
-            Add every measurement that can be used for this product.
-        </p>
+        <p class="muted">Optional. Add a bigger or smaller unit and say how many of your counting unit it holds, for example 1 Box = 12 Piece. You can also click a suggestion above.</p>
 
 
         <div class="unit-table-wrapper">
@@ -218,7 +219,7 @@
 
                     <tr>
                         <th>Unit</th>
-                        <th>Conversion to Base Unit</th>
+                        <th>How many in one? <span class="u-th-hint">(in <b class="u-base-head">your counting unit</b>)</span></th>
                         <th style="text-align: center;">Action</th>
                     </tr>
 
@@ -279,13 +280,7 @@
                                     required
                                 >
 
-                                <small class="help-text">
-                                    1 selected unit =
-                                    <span class="factor-preview">
-                                        {{ format_qty((float) ($oldUnit['conversion_factor'] ?? 1)) }}
-                                    </span>
-                                    base units.
-                                </small>
+                                <small class="help-text unit-sentence">1 <b class="u-name">unit</b> = <span class="factor-preview">{{ format_qty((float) ($oldUnit['conversion_factor'] ?? 1)) }}</span> <b class="u-base">counting unit</b></small>
 
                             </td>
 
@@ -317,76 +312,70 @@
             class="btn btn-secondary"
             style="margin-top: 15px;"
         >
-            + Add Unit
+            + Add another unit
         </button>
 
 
         <div id="unit-info" class="info-box">
-            Select the base unit and configure the available units.
+            Start by choosing the unit you count this product in.
         </div>
 
 
-        <hr>
+        </section>
+
+        <section class="form-section">
 
 
         <h2>Pricing</h2>
 
         <p class="muted">
-            Prices are per <strong>base unit</strong> and already include VAT.
+            Prices are per <strong class="u-base-head" data-fallback="counting unit">counting unit</strong> and already include VAT.
         </p>
 
 
-        <details class="cost-helper">
-            <summary>Bought by the box or case? Work out the cost per base unit</summary>
+        <div class="cost-calc" id="cost-calc">
+            <button
+                type="button"
+                id="cost-calc-toggle"
+                class="btn btn-secondary cost-calc-toggle"
+                aria-expanded="false"
+                aria-controls="cost-calc-panel"
+            >Click here to compute your cost price</button>
+            <span class="help-text cost-calc-caption">Paid by the box, case or pack? We'll work out the price of one <b class="u-base-head" data-fallback="counting unit">counting unit</b>.</span>
 
-        <div class="cost-helper-box">
+            <div class="cost-calc-panel" id="cost-calc-panel" hidden>
+                <div class="cost-calc-sentence">
+                    <span>I paid</span>
 
-            <div class="cost-helper-row">
+                    <span class="cost-calc-money">
+                        <span aria-hidden="true">₱</span>
+                        <input
+                            type="text" inputmode="decimal" autocomplete="off" data-numeric
+                            id="cost-helper-amount"
+                            aria-label="Amount you paid"
+                            min="0"
+                            step="0.01"
+                            placeholder="200.00"
+                        >
+                    </span>
 
-                <div>
-                    <label for="cost-helper-amount">
-                        I paid
-                    </label>
-                    <input
-                        type="text" inputmode="decimal" autocomplete="off" data-numeric
-                        id="cost-helper-amount"
-                        class="form-control"
-                        min="0"
-                        step="0.01"
-                        placeholder="e.g. 200"
-                    >
-                </div>
+                    <span>for 1</span>
 
-                <div>
-                    <label for="cost-helper-unit">
-                        per
-                    </label>
-                    <select
-                        id="cost-helper-unit"
-                        class="form-control"
-                    >
-                        <option value="">-- Select a unit --</option>
+                    <select id="cost-helper-unit" aria-label="Unit you paid for">
+                        <option value="">-- choose a unit --</option>
                     </select>
                 </div>
 
-                <div>
-                    <button
-                        type="button"
-                        id="cost-helper-apply"
-                        class="btn btn-secondary"
-                    >
-                        Use this cost
-                    </button>
+                <div class="cost-calc-result" id="cost-helper-result" aria-live="polite">
+                    Enter the amount and choose the unit to see the cost of one <b class="u-base-head" data-fallback="counting unit">counting unit</b>.
                 </div>
 
+                <div class="cost-calc-actions">
+                    <button type="button" id="cost-helper-apply" class="btn btn-primary">Use this cost</button>
+                    <span class="cost-calc-note">It is filled in below as the Cost Price. You can still change it.</span>
+                </div>
             </div>
-
-            <small class="help-text" id="cost-helper-result"></small>
-
         </div>
-
-
-        </details>
 
 
         <div class="pricing-grid">
@@ -395,7 +384,7 @@
 
             <label for="cost_price">
                 Cost Price
-                <small>(per base unit)</small>
+                <small>(per <span class="u-base-head" data-fallback="counting unit">counting unit</span>)</small>
             </label>
 
             <input
@@ -467,7 +456,7 @@
 
             <label for="selling_price">
                 Selling Price
-                <small>(per base unit)</small>
+                <small>(per <span class="u-base-head" data-fallback="counting unit">counting unit</span>)</small>
             </label>
 
             <input
@@ -499,7 +488,9 @@
         </div>
 
 
-        <hr>
+        </section>
+
+        <section class="form-section">
 
 
         <h2>Stock Settings and Details</h2>
@@ -610,7 +601,9 @@
         </div>
 
 
-        <hr>
+        </section>
+
+        <section class="form-section">
 
 
         <h2>Product Codes (optional)</h2>
@@ -691,6 +684,8 @@
 
         </div>
 
+
+        </section>
 
         <div class="button-row">
 
@@ -1137,7 +1132,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!baseUnit.value) {
 
             info.innerHTML =
-                'Select the base unit and configure the available units.';
+                'Start by choosing the unit you count this product in.';
 
             return;
         }
@@ -1148,7 +1143,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ];
 
         let html =
-            '<strong>Base Unit:</strong> '
+            '<strong>You count this product in:</strong> '
             + escapeHtml(option.text)
             + '<br><br>';
 
@@ -1164,7 +1159,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const conversion =
                     row.querySelector('.conversion-input');
 
-                if (!select.value) {
+                if (!select.value || select.value === baseUnit.value) {
                     return;
                 }
 
@@ -1179,18 +1174,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     parseFloat(conversion.value);
 
                 html +=
-                    escapeHtml(selectedOption.text)
-                    + ' = '
-                    + (
-                        isNaN(factor)
-                            ? '-'
-                            : formatQty(factor)
-                    )
-                    + ' base units<br>';
+                    '1 ' + escapeHtml(selectedOption.text) + ' = ' + (isNaN(factor) ? '-' : formatQty(factor)) + ' ' + escapeHtml(option.text) + '<br>';
             });
 
         if (!hasUnits) {
-            html += 'No units have been selected yet.';
+            html += 'No other units yet. This product is counted and sold in ' + escapeHtml(option.text) + ' only.';
         }
 
         info.innerHTML = html;
@@ -1312,6 +1300,12 @@ document.addEventListener('DOMContentLoaded', function () {
     | division into a per-base-unit cost for them.
     */
 
+    function baseUnitName() {
+        const option = baseUnit.value ? baseUnit.options[baseUnit.selectedIndex] : null;
+
+        return option ? option.text.replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim() : '';
+    }
+
     function populateCostHelperUnitOptions() {
 
         const select =
@@ -1356,11 +1350,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 option.value = factor;
 
-                option.textContent =
-                    (selectedOption ? selectedOption.text : 'Unit')
-                    + ' (1 = '
-                    + formatQty(factor)
-                    + ' base units)';
+                option.textContent = (selectedOption ? selectedOption.text.replace(/\s*\([^)]*\)\s*$/, '') : 'Unit') + ' (1 = ' + formatQty(factor) + ' ' + (baseUnitName() || 'counting unit') + ')';
 
                 select.appendChild(option);
             });
@@ -1390,13 +1380,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (isNaN(amount) || amount < 0) {
             resultText.textContent =
-                'Enter how much you paid first.';
+                'Enter how much you paid.';
             return;
         }
 
         if (!unitSelect.value || isNaN(factor) || factor <= 0) {
             resultText.textContent =
-                'Select which unit that price is for.';
+                'Choose the unit you paid for.';
             return;
         }
 
@@ -1407,8 +1397,7 @@ document.addEventListener('DOMContentLoaded', function () {
             costPerBaseUnit.toFixed(4);
 
         resultText.textContent =
-            '₱' + amount.toFixed(2) + ' ÷ ' + formatQty(factor)
-            + ' = ₱' + costPerBaseUnit.toFixed(4) + ' per base unit — applied below.';
+            'Done: \u20B1' + costPerBaseUnit.toFixed(4) + ' per ' + (baseUnitName() || 'counting unit') + ' has been entered as the cost price below.';
 
         updatePricingUI();
         updateUnitPricingPreview();
@@ -1421,6 +1410,53 @@ document.addEventListener('DOMContentLoaded', function () {
     if (costHelperApplyButton) {
         costHelperApplyButton.addEventListener('click', applyCostHelper);
     }
+
+    // The calculator opens and closes from the big button, and shows the
+    // answer as you type, before you press "Use this cost".
+    const costCalcToggle = document.getElementById('cost-calc-toggle');
+    const costCalcPanel = document.getElementById('cost-calc-panel');
+
+    if (costCalcToggle && costCalcPanel) {
+        costCalcToggle.addEventListener('click', function () {
+            const willOpen = costCalcPanel.hidden;
+
+            costCalcPanel.hidden = !willOpen;
+            costCalcToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            costCalcToggle.closest('.cost-calc').classList.toggle('is-open', willOpen);
+
+            if (willOpen) {
+                populateCostHelperUnitOptions();
+                previewCostHelper();
+                document.getElementById('cost-helper-amount').focus();
+            }
+        });
+    }
+
+    function previewCostHelper() {
+        const resultText = document.getElementById('cost-helper-result');
+        const amount = parseFloat(document.getElementById('cost-helper-amount').value);
+        const factor = parseFloat(document.getElementById('cost-helper-unit').value);
+        const base = baseUnitName() || 'counting unit';
+
+        resultText.classList.remove('is-ready', 'is-error');
+
+        if (isNaN(amount) || isNaN(factor) || factor <= 0) {
+            resultText.textContent = 'Enter the amount and choose the unit to see the cost of one ' + base + '.';
+            return;
+        }
+
+        resultText.classList.add('is-ready');
+        resultText.textContent = 'Cost of one ' + base + ': \u20B1' + (amount / factor).toFixed(4)
+            + '  (\u20B1' + amount.toFixed(2) + ' \u00F7 ' + formatQty(factor) + ')';
+    }
+
+    ['input', 'change'].forEach(function (eventName) {
+        const amountInput = document.getElementById('cost-helper-amount');
+        const unitSelect = document.getElementById('cost-helper-unit');
+
+        if (amountInput) { amountInput.addEventListener(eventName, previewCostHelper); }
+        if (unitSelect) { unitSelect.addEventListener(eventName, previewCostHelper); }
+    });
 
 
     function escapeHtml(value) {
@@ -1473,13 +1509,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     required
                 >
 
-                <small class="help-text">
-                    1 selected unit =
-                    <span class="factor-preview">
-                        1.0000
-                    </span>
-                    base units.
-                </small>
+                <small class="help-text unit-sentence">1 <b class="u-name">unit</b> = <span class="factor-preview">1</span> <b class="u-base">counting unit</b></small>
             </td>
 
             <td style="text-align: center;">
@@ -1607,7 +1637,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 event.preventDefault();
 
                 alert(
-                    'The selected base unit must also be included in the available units.'
+                    'Your counting unit must also be in the list of units. Add a row for it.'
                 );
 
                 return;
@@ -1619,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 event.preventDefault();
 
                 alert(
-                    'The base unit must have a conversion factor of 1.'
+                    'Your counting unit must always equal 1 of itself. Set its number to 1.'
                 );
             }
 

@@ -44,7 +44,7 @@
                             <div class="actions">
                                 <a
                                     href="{{ route('units-of-measure.show', ['units_of_measure' => $unit->id]) }}"
-                                    class="btn btn-primary"
+                                    class="btn btn-secondary"
                                 >
                                     View
                                 </a>
@@ -52,7 +52,7 @@
                                 @if (auth()->user()->isAdmin())
                                     <a
                                         href="{{ route('units-of-measure.edit', ['units_of_measure' => $unit->id]) }}"
-                                        class="btn btn-secondary"
+                                        class="btn btn-primary"
                                     >
                                         Edit
                                     </a>

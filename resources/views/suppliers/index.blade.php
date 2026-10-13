@@ -117,13 +117,13 @@
                         <td>
                             <div class="actions" style="justify-content: flex-end;">
 
-                                <a href="{{ route('suppliers.show', $supplier) }}" class="btn btn-primary">
+                                <a href="{{ route('suppliers.show', $supplier) }}" class="btn btn-secondary">
                                     View
                                 </a>
 
                                 @if (auth()->user()->hasRole('admin'))
 
-                                    <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-secondary">
+                                    <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-primary">
                                         Edit
                                     </a>
 

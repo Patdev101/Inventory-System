@@ -146,7 +146,7 @@
 
                                 <a
                                     href="{{ route('products.show', $product) }}"
-                                    class="btn btn-primary btn-sm"
+                                    class="btn btn-secondary btn-sm"
                                 >
                                     View
                                 </a>
@@ -155,7 +155,7 @@
 
                                     <a
                                         href="{{ route('products.edit', $product) }}"
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-primary btn-sm"
                                     >
                                         Edit
                                     </a>

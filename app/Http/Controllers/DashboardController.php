@@ -6,6 +6,8 @@ use App\Models\Inventory;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransfer;
 use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\StockMovementRequest;
 use App\Models\Location;
 use App\Services\StockAlertService;
 use Illuminate\Http\Request;
@@ -170,6 +172,105 @@ class DashboardController extends Controller
             $outOfStockCount +
             $criticalStockCount +
             $lowStockCount;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Needs attention
+        |--------------------------------------------------------------------------
+        |
+        | The short list at the top of the dashboard: only things this person
+        | can act on, each with the one page that deals with it. Every count
+        | goes through the models' location scope, so nobody is told about
+        | another location's work.
+        |
+        */
+
+        $user = $request->user();
+        $canApprove = $user->hasRole('admin', 'manager');
+        $attentionItems = [];
+
+        if ($outOfStockCount > 0) {
+            $attentionItems[] = [
+                'tone' => 'danger',
+                'title' => $outOfStockCount . ' ' . ($outOfStockCount === 1 ? 'item is' : 'items are') . ' out of stock',
+                'detail' => $canApprove ? 'Order more from a supplier to restock.' : 'Let your manager know these need restocking.',
+                'action' => $canApprove ? 'Create purchase order' : 'View items',
+                'url' => $canApprove ? route('purchase-orders.create') : route('stock-alerts.index', ['severity' => 'out_of_stock']),
+            ];
+        }
+
+        $runningLowCount = $criticalStockCount + $lowStockCount;
+
+        if ($runningLowCount > 0) {
+            $attentionItems[] = [
+                'tone' => 'warning',
+                'title' => $runningLowCount . ' ' . ($runningLowCount === 1 ? 'item is' : 'items are') . ' running low',
+                'detail' => 'At or below the reorder point.',
+                'action' => 'View items',
+                'url' => route('stock-alerts.index'),
+            ];
+        }
+
+        $transfersToReceive = InventoryTransfer::where('receiver_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+
+        if ($transfersToReceive > 0) {
+            $attentionItems[] = [
+                'tone' => 'info',
+                'title' => $transfersToReceive . ' ' . ($transfersToReceive === 1 ? 'transfer is' : 'transfers are') . ' waiting for you to receive',
+                'detail' => 'Check the delivery and confirm it.',
+                'action' => 'Receive',
+                'url' => route('inventory-transfers.pending-audits'),
+            ];
+        }
+
+        // Staff are only told about their own requests; approvers about every one they can review.
+        $pendingRequests = StockMovementRequest::pending()
+            ->when(! $canApprove, fn ($query) => $query->where('requested_by', $user->id))
+            ->count();
+
+        if ($pendingRequests > 0) {
+            $attentionItems[] = [
+                'tone' => 'info',
+                'title' => $canApprove
+                    ? $pendingRequests . ' stock ' . ($pendingRequests === 1 ? 'request needs' : 'requests need') . ' your approval'
+                    : $pendingRequests . ' of your stock ' . ($pendingRequests === 1 ? 'request is' : 'requests are') . ' waiting for approval',
+                'detail' => $canApprove ? 'Submitted by staff.' : 'A manager or admin will review it.',
+                'action' => $canApprove ? 'Review' : 'View',
+                'url' => route('stock-movement-requests.index'),
+            ];
+        }
+
+        if ($canApprove) {
+            $ordersToApprove = PurchaseOrder::where('status', PurchaseOrder::STATUS_PENDING_APPROVAL)->count();
+
+            if ($ordersToApprove > 0) {
+                $attentionItems[] = [
+                    'tone' => 'info',
+                    'title' => $ordersToApprove . ' purchase ' . ($ordersToApprove === 1 ? 'order is' : 'orders are') . ' waiting for approval',
+                    'detail' => 'Approve or reject before it is sent to the supplier.',
+                    'action' => 'Review',
+                    'url' => route('purchase-orders.index', ['status' => PurchaseOrder::STATUS_PENDING_APPROVAL]),
+                ];
+            }
+
+            $ordersToReceive = PurchaseOrder::whereIn('status', [
+                PurchaseOrder::STATUS_ORDERED,
+                PurchaseOrder::STATUS_PARTIALLY_RECEIVED,
+            ])->count();
+
+            if ($ordersToReceive > 0) {
+                $attentionItems[] = [
+                    'tone' => 'neutral',
+                    'title' => $ordersToReceive . ' purchase ' . ($ordersToReceive === 1 ? 'order is' : 'orders are') . ' on the way',
+                    'detail' => 'Receive the stock when the delivery arrives.',
+                    'action' => 'View orders',
+                    'url' => route('purchase-orders.index', ['status' => PurchaseOrder::STATUS_ORDERED]),
+                ];
+            }
+        }
 
 
         /*
@@ -367,7 +468,8 @@ class DashboardController extends Controller
                 'chartIn',
                 'chartOut',
                 'notifications',
-                'unreadNotificationsCount'
+                'unreadNotificationsCount',
+                'attentionItems'
             )
         );
     }

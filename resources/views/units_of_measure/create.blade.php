@@ -4,7 +4,12 @@
 
 @section('content')
 <div class="container">
-    <h1>Add Unit of Measure</h1>
+    <div class="page-header">
+        <div>
+            <h1>Add Unit of Measure</h1>
+            <p>Add a unit that products can be counted, bought or sold in.</p>
+        </div>
+    </div>
 
     @if ($errors->any())
         <div class="error" style="margin-bottom: 20px;">
