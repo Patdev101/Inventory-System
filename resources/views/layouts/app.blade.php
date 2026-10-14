@@ -74,6 +74,17 @@
         </div>
     @endif
 
+    {{-- A form the server turned down always says why, even on a page that has no spot for field errors. --}}
+    @if($errors->any() && ! session('error'))
+        <div class="toast toast-error" data-toast data-toast-timeout="8000">
+            <span class="toast-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>
+            </span>
+            <span>{{ $errors->first() }}</span>
+            <button type="button" class="toast-close" data-toast-close aria-label="Dismiss">&times;</button>
+        </div>
+    @endif
+
     @if(session('error'))
         <div class="toast toast-error" data-toast data-toast-timeout="6000">
             <span class="toast-icon">
@@ -297,6 +308,23 @@
 
         if (!(form instanceof HTMLFormElement)) {
             return;
+        }
+
+        /*
+         * A disabled button's name/value is left out of the request, so a
+         * form with "Pass" / "Fail" buttons would arrive without saying which
+         * one was clicked. Copy the clicked button's value into a hidden field
+         * before disabling it.
+         */
+        var submitter = event.submitter;
+
+        if (submitter && submitter.name && !form.querySelector('input[type="hidden"][data-submitter-copy]')) {
+            var copy = document.createElement('input');
+            copy.type = 'hidden';
+            copy.name = submitter.name;
+            copy.value = submitter.value;
+            copy.setAttribute('data-submitter-copy', '');
+            form.appendChild(copy);
         }
 
         form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (button) {

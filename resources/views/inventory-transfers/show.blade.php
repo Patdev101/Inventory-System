@@ -535,25 +535,14 @@
 
                 @method('PATCH')
 
-                <div style="
-                    display: grid;
-                    grid-template-columns: minmax(0, 280px) auto;
-                    gap: 12px;
-                    align-items: end;
-                ">
+                <div class="form-group" style="margin-bottom: 0;">
 
-                    <div class="form-group">
+                    <label for="received_quantity">
+                        Quantity Received
+                    </label>
 
-                        <label
-                            for="received_quantity"
-                            style="
-                                font-weight: 700;
-                                display: block;
-                                margin-bottom: 6px;
-                            "
-                        >
-                            Quantity Received
-                        </label>
+                    {{-- Field and button on one line, same height; the limit sits under the field. --}}
+                    <div style="display: flex; gap: 10px; align-items: stretch; max-width: 460px;">
 
                         <input
                             type="text" inputmode="decimal" autocomplete="off" data-numeric
@@ -564,38 +553,25 @@
                             max="{{ $remainingQuantity }}"
                             step="0.0001"
                             required
-                            style="
-                                width: 100%;
-                                padding: 9px 10px;
-                                border: 1px solid #cbd5e1;
-                                border-radius: 6px;
-                            "
+                            style="flex: 1; min-width: 0;"
                         >
 
-                        <div style="
-                            margin-top: 5px;
-                            color: #64748b;
-                            font-size: 12px;
-                        ">
-                            Maximum:
-                            {{ format_qty($remainingQuantity) }}
-                            {{ $transfer->productUnit->unitOfMeasure->code ?? '' }}
-                        </div>
+                        <button
+                            type="submit"
+                            class="btn btn-success"
+                            data-confirm="Record this received quantity and add it to the destination stock?"
+                            data-confirm-title="Confirm receipt"
+                        >
+                            Mark Received
+                        </button>
 
                     </div>
 
-                    <button
-                        type="submit"
-                        class="btn btn-primary"
-                        style="
-                            background: #16a34a;
-                            border-color: #16a34a;
-                        "
-                        data-confirm="Record this received quantity and add it to the destination stock?"
-                        data-confirm-title="Confirm receipt"
-                    >
-                        Mark Received
-                    </button>
+                    <small style="display: block; margin-top: 6px;">
+                        Maximum:
+                        {{ format_qty($remainingQuantity) }}
+                        {{ $transfer->productUnit->unitOfMeasure->code ?? '' }}
+                    </small>
 
                 </div>
 
