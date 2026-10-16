@@ -117,41 +117,77 @@
 <script>
     /*
     |--------------------------------------------------------------------------
-    | Auto-refresh
+    | Live refresh
     |--------------------------------------------------------------------------
     |
     | Stock changes constantly from the POS side. Pages that show live
-    | stock numbers (dashboard, inventory list/detail) opt in by setting
-    | the "autoRefreshSeconds" section to a number of seconds, instead of
-    | requiring a manual reload to see what the POS already deducted.
-    | Scroll position is restored so a long page doesn't jump back to
-    | the top every reload.
+    | numbers (dashboard, inventory list) set the "autoRefreshSeconds"
+    | section and mark the parts that change with data-live="name".
+    | Every few seconds the page quietly fetches itself in the background
+    | and swaps in only the marked parts whose content changed, so there
+    | is no reload, no flash and no jump in scroll position.
+    |
+    | A part is left alone while the person is typing in it, and a tab
+    | that is hidden doesn't fetch at all. If the session has ended (the
+    | fetch lands on the login page) it stops instead of swapping in a
+    | login form.
     */
     (function () {
         var seconds = @yield('autoRefreshSeconds', 'null');
 
-        if (!seconds) {
+        if (!seconds || !window.fetch || !window.DOMParser) {
             return;
         }
 
-        var storageKey = 'inventory-scroll:' + window.location.pathname + window.location.search;
-        var savedScroll = sessionStorage.getItem(storageKey);
+        var busy = false;
 
-        if (savedScroll !== null) {
-            window.scrollTo(0, parseInt(savedScroll, 10));
-            sessionStorage.removeItem(storageKey);
-        }
-
-        setInterval(function () {
-            if (document.hidden) {
+        function refresh() {
+            if (busy || document.hidden) {
                 return;
             }
 
-            sessionStorage.setItem(storageKey, String(window.scrollY));
-            window.location.reload();
-        }, seconds * 1000);
-    })();
+            busy = true;
 
+            fetch(window.location.href, {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                cache: 'no-store'
+            })
+                .then(function (response) {
+                    // Signed out: stop for good. Any other hiccup: just try again next time.
+                    if (response.redirected || response.status === 401 || response.status === 419) {
+                        clearInterval(timer);
+                    }
+
+                    if (!response.ok || response.redirected) {
+                        throw new Error('stop');
+                    }
+
+                    return response.text();
+                })
+                .then(function (html) {
+                    var fresh = new DOMParser().parseFromString(html, 'text/html');
+
+                    document.querySelectorAll('[data-live]').forEach(function (current) {
+                        var replacement = fresh.querySelector('[data-live="' + current.getAttribute('data-live') + '"]');
+
+                        if (!replacement || current.contains(document.activeElement)) {
+                            return;
+                        }
+
+                        if (replacement.innerHTML !== current.innerHTML) {
+                            current.innerHTML = replacement.innerHTML;
+                        }
+                    });
+                })
+                .catch(function () {})
+                .then(function () {
+                    busy = false;
+                });
+        }
+
+        var timer = setInterval(refresh, seconds * 1000);
+    })();
     /*
     |--------------------------------------------------------------------------
     | Toast notifications

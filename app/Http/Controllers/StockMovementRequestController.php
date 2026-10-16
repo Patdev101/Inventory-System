@@ -132,14 +132,18 @@ class StockMovementRequestController extends Controller
                 $stockMovementRequest->product_id,
                 $stockMovementRequest->product_unit_id,
                 $stockMovementRequest->type,
-                (float) $stockMovementRequest->quantity
+                (float) $stockMovementRequest->quantity,
+                $stockMovementRequest->notes,
+                $stockMovementRequest->expiry_date?->toDateString()
             );
         } else {
             $this->movementService->addStock(
                 $stockMovementRequest->product_id,
                 $stockMovementRequest->location_id,
                 $stockMovementRequest->product_unit_id,
-                (float) $stockMovementRequest->quantity
+                (float) $stockMovementRequest->quantity,
+                notes: $stockMovementRequest->notes,
+                expiryDate: $stockMovementRequest->expiry_date?->toDateString()
             );
         }
     }

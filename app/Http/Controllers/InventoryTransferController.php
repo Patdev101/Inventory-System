@@ -45,7 +45,7 @@ class InventoryTransferController extends Controller
         $transfers = InventoryTransfer::query()
             ->select('inventory_transfers.*')
             ->with([
-                'product',
+                'product.baseUnit',
                 'sourceInventory.location',
                 'destinationInventory.location',
                 'productUnit.unitOfMeasure',
@@ -91,7 +91,7 @@ class InventoryTransferController extends Controller
                     )
 
                     ->orWhereHas(
-                        'product',
+                        'product.baseUnit',
                         function ($query) use ($search) {
                             $query->where(
                                 'name',
@@ -148,7 +148,7 @@ class InventoryTransferController extends Controller
     public function pendingAudits(Request $request)
     {
         $transfers = InventoryTransfer::with([
-            'product',
+            'product.baseUnit',
             'sourceInventory.location',
             'destinationInventory.location',
             'productUnit.unitOfMeasure',
@@ -171,7 +171,7 @@ class InventoryTransferController extends Controller
     public function create()
     {
         $inventories = Inventory::with([
-            'product',
+            'product.baseUnit',
             'product.productUnits.unitOfMeasure',
             'location',
             'productUnit.unitOfMeasure',
@@ -184,7 +184,8 @@ class InventoryTransferController extends Controller
             ->orderBy('name')
             ->get();
 
-        $receivers = User::orderBy('name')->get();
+        // Everyone who could receive somewhere; the page narrows it to the chosen destination.
+        $receivers = User::where('is_active', true)->orderBy('name')->get();
 
         return view(
             'inventory-transfers.create',
@@ -202,7 +203,7 @@ class InventoryTransferController extends Controller
     public function show(InventoryTransfer $transfer)
     {
         $transfer->load([
-            'product',
+            'product.baseUnit',
             'productUnit.unitOfMeasure',
             'sourceInventory.product',
             'sourceInventory.location',
@@ -279,7 +280,7 @@ class InventoryTransferController extends Controller
 
         // Sources must be stock at the user's own location, the destination a
         // location of the user's own company, and the receiver someone who
-        // works at the destination (or an admin).
+        // works at the destination (or an admin who isn't tied to one location).
         $sourceIds = collect($validated['items'])->pluck('source_inventory_id')->map(fn ($id) => (int) $id)->unique();
 
         abort_unless(
@@ -291,14 +292,10 @@ class InventoryTransferController extends Controller
         $destination = UserAccess::unscoped(fn () => Location::findOrFail($validated['destination_location_id']));
         UserAccess::assertCompany($destination->company_id);
 
-        if (UserAccess::enabled()) {
-            $receiver = User::findOrFail($validated['receiver_id']);
-
-            if (!$receiver->isAdmin() && (int) $receiver->location_id !== (int) $destination->id) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'receiver_id' => 'The receiver must be an admin or work at the destination location.',
-                ]);
-            }
+        if (! User::canReceiveAt(User::findOrFail($validated['receiver_id']), $destination->id)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'receiver_id' => 'The receiver must work at ' . $destination->name . '.',
+            ]);
         }
 
         $receiverRole = User::whereKey($validated['receiver_id'])->value('role');

@@ -29,6 +29,7 @@ class InventoryCompanyScopingTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
                 'product_id' => $product->id,
                 'location_id' => $locationInOtherCompany->id,
                 'product_unit_id' => $productUnit->id,
@@ -56,6 +57,7 @@ class InventoryCompanyScopingTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
                 'product_id' => $product->id,
                 'location_id' => $location->id,
                 'product_unit_id' => $productUnit->id,

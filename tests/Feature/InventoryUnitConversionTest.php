@@ -26,6 +26,7 @@ class InventoryUnitConversionTest extends TestCase
         $bagUnit = $this->makeProductUnit($product, $bag, conversionFactor: 25, isDefault: false);
 
         $this->actingAs($manager)->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
             'product_id' => $product->id,
             'location_id' => $location->id,
             'product_unit_id' => $bagUnit->id,
@@ -55,6 +56,7 @@ class InventoryUnitConversionTest extends TestCase
         $productBUnit = $this->makeProductUnit($productB, $unit);
 
         $this->actingAs($manager)->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
             'product_id' => $productA->id,
             'location_id' => $location->id,
             'product_unit_id' => $productBUnit->id,
@@ -79,6 +81,7 @@ class InventoryUnitConversionTest extends TestCase
         $inventory = $this->makeInventory($product, $location, $productUnit, 5, 5);
 
         $this->actingAs($manager)->patch(route('inventories.update', $inventory), [
+            'remarks' => 'Test movement',
             'product_id' => $product->id,
             'location_id' => $location->id,
             'product_unit_id' => $productUnit->id,

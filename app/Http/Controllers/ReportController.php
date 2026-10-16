@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Inventory;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransfer;
+use App\Services\ExpiryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\View\View;
@@ -18,7 +19,34 @@ class ReportController extends Controller
             'outOfStockCount' => Inventory::outOfStock()->count(),
             'criticalStockCount' => Inventory::criticalStock()->count(),
             'lowStockCount' => Inventory::lowStock()->count(),
+            'expiryCounts' => $this->expiryCounts(app(ExpiryService::class)->expiringBatches()),
         ]);
+    }
+
+    /**
+     * Stock of expiring products that has expired or expires within the
+     * warning window (or a window the person picks), soonest first.
+     */
+    public function expiring(Request $request, ExpiryService $expiry): View
+    {
+        $days = (int) $request->query('days', config('stockalerts.expiry_warning_days', 30));
+        $days = max(1, min($days, 365));
+
+        $batches = $expiry->expiringBatches($days);
+
+        return view('reports.expiring', [
+            'batches' => $batches,
+            'days' => $days,
+            'counts' => $this->expiryCounts($batches),
+        ]);
+    }
+
+    private function expiryCounts($batches): array
+    {
+        return [
+            'expired' => $batches->where('expired', true)->count(),
+            'expiring' => $batches->where('expired', false)->count(),
+        ];
     }
 
     public function stockMovements(Request $request): View

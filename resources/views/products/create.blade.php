@@ -394,7 +394,7 @@
                 class="form-control"
                 value="{{ old('cost_price') }}"
                 min="0"
-                step="0.0001"
+                step="0.01"
                 placeholder="0.00"
             >
 
@@ -509,12 +509,11 @@
                 class="form-control"
                 value="{{ old('reorder_point', '0') }}"
                 min="0"
-                step="0.0001"
+                step="0.1"
                 required
             >
 
         </div>
-
 
         <div class="form-group">
 
@@ -1394,10 +1393,10 @@ document.addEventListener('DOMContentLoaded', function () {
             amount / factor;
 
         document.getElementById('cost_price').value =
-            costPerBaseUnit.toFixed(4);
+            costPerBaseUnit.toFixed(2);
 
         resultText.textContent =
-            'Done: \u20B1' + costPerBaseUnit.toFixed(4) + ' per ' + (baseUnitName() || 'counting unit') + ' has been entered as the cost price below.';
+            'Done: \u20B1' + costPerBaseUnit.toFixed(2) + ' per ' + (baseUnitName() || 'counting unit') + ' has been entered as the cost price below.';
 
         updatePricingUI();
         updateUnitPricingPreview();
@@ -1446,7 +1445,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         resultText.classList.add('is-ready');
-        resultText.textContent = 'Cost of one ' + base + ': \u20B1' + (amount / factor).toFixed(4)
+        resultText.textContent = 'Cost of one ' + base + ': \u20B1' + (amount / factor).toFixed(2)
             + '  (\u20B1' + amount.toFixed(2) + ' \u00F7 ' + formatQty(factor) + ')';
     }
 

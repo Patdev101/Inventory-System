@@ -8,7 +8,7 @@
     <div>
         <h1>Transfer Inventory</h1>
         <p style="margin: 6px 0 0; color: #64748b;">
-            Select items from your checklist below, choose your transfer units, and specify quantities to move.
+            Choose where the stock goes and who receives it, then add the products to move.
         </p>
     </div>
 
@@ -44,416 +44,276 @@
         @csrf
 
         {{-- =========================
-             DESTINATION LOCATION
+             WHERE IT GOES + WHO RECEIVES IT (side by side)
         ========================== --}}
-        <div class="form-group" style="margin-bottom: 24px;">
-            <label
-                for="destination_location_id"
-                style="font-weight: bold; display: block; margin-bottom: 6px;"
-            >
-                Destination Location <span style="color: red;">*</span>
-            </label>
+        <div class="transfer-grid">
 
-            <select
-                id="destination_location_id"
-                name="destination_location_id"
-                required
-                style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"
-            >
-                <option value="">-- Select Destination Location --</option>
-
-                @foreach ($locations as $location)
-                    <option
-                        value="{{ $location->id }}"
-                        {{ old('destination_location_id') == $location->id ? 'selected' : '' }}
-                    >
-                        {{ $location->name }}
-                        {{ $location->code ? '(' . $location->code . ')' : '' }}
-
-                        @if($location->company)
-                            - {{ $location->company->name }}
-                        @endif
-                    </option>
-                @endforeach
-            </select>
-
-            <small
-                id="destination-helper"
-                style="display: block; margin-top: 6px; color: #64748b;"
-            >
-                Select a destination location to unlock transfer options.
-                Items in the same location will be disabled automatically.
-            </small>
-        </div>
-
-        {{-- =========================
-             RECEIVER
-        ========================== --}}
-        <div
-            class="form-group"
-            style="margin-bottom: 24px; max-width: 560px;"
-        >
-            <div>
-                <label
-                    for="receiver_id"
-                    style="font-weight: bold; display: block; margin-bottom: 6px;"
-                >
-                    Receiver <span style="color: red;">*</span>
+            <div class="form-group">
+                <label for="destination_location_id">
+                    Destination Location <span style="color: #dc2626;">*</span>
                 </label>
 
-                <select
-                    id="receiver_id"
-                    name="receiver_id"
-                    required
-                    style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"
-                >
-                    <option value="">-- Select Receiver --</option>
+                <select id="destination_location_id" name="destination_location_id" required>
+                    <option value="">Select destination</option>
 
-                    @foreach ($receivers as $receiver)
+                    @foreach ($locations as $location)
                         <option
-                            value="{{ $receiver->id }}"
-                            data-role="{{ $receiver->role }}"
-                            {{ old('receiver_id') == $receiver->id ? 'selected' : '' }}
+                            value="{{ $location->id }}"
+                            {{ old('destination_location_id') == $location->id ? 'selected' : '' }}
                         >
-                            {{ $receiver->name }}
-                            ({{ ucfirst($receiver->role) }})
+                            {{ $location->name }}{{ $location->code ? ' (' . $location->code . ')' : '' }}{{ $location->company ? ' - ' . $location->company->name : '' }}
                         </option>
                     @endforeach
                 </select>
 
-                <small
-                    style="display: block; margin-top: 6px; color: #64748b;"
-                >
-                    This person will inspect and confirm the transferred stock
-                    before it's added to the destination.
-                </small>
+                <small id="destination-helper">Where the stock is going.</small>
             </div>
+
+            <div class="form-group">
+                <label for="receiver_id">
+                    Receiver <span style="color: #dc2626;">*</span>
+                </label>
+
+                {{-- Only people who work at the chosen destination are offered (see the script below). --}}
+                <select id="receiver_id" name="receiver_id" required disabled>
+                    <option value="">Select a destination first</option>
+
+                    @foreach ($receivers as $receiver)
+                        <option
+                            value="{{ $receiver->id }}"
+                            data-location="{{ $receiver->location_id }}"
+                            data-admin="{{ $receiver->isAdmin() ? '1' : '0' }}"
+                            {{ old('receiver_id') == $receiver->id ? 'selected' : '' }}
+                        >
+                            {{ $receiver->name }} ({{ ucfirst($receiver->role) }})
+                        </option>
+                    @endforeach
+                </select>
+
+                <small id="receiver-helper">Someone at the destination who will check and accept the stock.</small>
+            </div>
+
         </div>
 
-        <hr
-            style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;"
-        >
+        <style>
+            .transfer-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0 24px;
+            }
+
+            .transfer-grid small {
+                display: block;
+                margin-top: 6px;
+            }
+
+            #receiver-helper.is-warning {
+                color: #b45309;
+            }
+
+            @media (max-width: 800px) {
+                .transfer-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 6px 0 22px;">
 
         {{-- =========================
-             AVAILABLE INVENTORY
+             ITEMS TO TRANSFER
+             Pick a product from the dropdown, press Add, then set its unit
+             and quantity in the table. Each row is sent as items[n][...].
         ========================== --}}
-        <h3 style="margin: 0 0 12px 0; font-size: 18px;">
-            Available Inventory Checklist
-        </h3>
 
-        <p
-            style="margin: 0 0 16px 0; color: #64748b; font-size: 13px;"
-        >
-            Check the boxes for the products you want to transfer,
-            configure their units, and enter quantities.
+        @php
+            // Everything the picker needs, in one small list (no stock record is sent twice).
+            $transferOptions = $inventories
+                ->filter(fn ($inventory) => (float) $inventory->base_quantity > 0 && $inventory->product && $inventory->location)
+                ->map(fn ($inventory) => [
+                    'id' => $inventory->id,
+                    'location_id' => $inventory->location_id,
+                    'product' => $inventory->product->name,
+                    'sku' => $inventory->product->sku,
+                    'location' => $inventory->location->name,
+                    'available' => (float) $inventory->base_quantity,
+                    'base' => $inventory->product->counting_unit,
+                    'units' => $inventory->product->productUnits
+                        ->filter(fn ($productUnit) => $productUnit->unitOfMeasure)
+                        ->map(fn ($productUnit) => [
+                            'id' => $productUnit->id,
+                            'name' => $productUnit->unitOfMeasure->name,
+                            'code' => $productUnit->unitOfMeasure->code,
+                            'factor' => (float) $productUnit->conversion_factor,
+                        ])
+                        ->sortBy('factor')
+                        ->values(),
+                ])
+                ->values();
+        @endphp
+
+        <h3 style="margin: 0 0 4px; font-size: 16px;">Items to transfer</h3>
+
+        <p style="margin: 0 0 14px; color: #64748b; font-size: 13px;">
+            Choose a product and press <strong>Add</strong>. Then set the unit and quantity for each item in the table.
         </p>
 
-        {{-- =========================
-             PAGE INFO
-        ========================== --}}
-        <div
-            style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 12px;
-                flex-wrap: wrap;
-                margin-bottom: 12px;
-                padding: 10px 12px;
-                background: #f8fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-            "
-        >
-            <div
-                id="checklist-page-info"
-                style="font-size: 13px; color: #475569;"
-            >
-                Showing 0-0 of 0 items
+        <div class="transfer-picker">
+
+            <div class="transfer-picker-field">
+                <label for="transfer-product-picker">Product</label>
+
+                <select id="transfer-product-picker" disabled>
+                    <option value="">Select a destination first</option>
+                </select>
             </div>
 
-            <div
-                id="checklist-selection-info"
-                style="font-size: 13px; color: #059669; font-weight: 600;"
-            >
-                0 selected
-            </div>
+            <button type="button" class="btn btn-primary" id="transfer-add-button" disabled>
+                Add
+            </button>
+
         </div>
 
-        {{-- =========================
-             CHECKLIST TABLE
-        ========================== --}}
-        <div style="overflow-x: auto; margin-bottom: 12px;">
-            <table
-                style="width: 100%; border-collapse: collapse; text-align: left;"
-            >
+        <div class="table-wrapper transfer-items-wrapper">
+
+            <table class="transfer-items-table">
+
                 <thead>
-                    <tr
-                        style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;"
-                    >
-                        <th
-                            style="padding: 10px; width: 5%; text-align: center;"
-                        >
-                            <input
-                                type="checkbox"
-                                id="select-all-checkbox"
-                                title="Select all items on this page"
-                                disabled
-                            >
-                        </th>
-
-                        <th style="padding: 10px; width: 35%;">
-                            Product & Source Location
-                        </th>
-
-                        <th style="padding: 10px; width: 25%;">
-                            Transfer Unit
-                        </th>
-
-                        <th style="padding: 10px; width: 35%;">
-                            Quantity & Stock Info
-                        </th>
+                    <tr>
+                        <th>Product</th>
+                        <th style="width: 220px;">Unit</th>
+                        <th style="width: 150px;">Quantity</th>
+                        <th style="width: 170px;">Moves</th>
+                        <th style="width: 90px;"></th>
                     </tr>
                 </thead>
 
-                <tbody id="checklist-body">
-
-                    @foreach ($inventories as $inventory)
-
-                        @if ((float) $inventory->base_quantity > 0)
-
-                            @php
-                                $productUnits =
-                                    $inventory->product->product_units
-                                    ?? $inventory->product->productUnits
-                                    ?? [];
-                            @endphp
-
-                            <tr
-                                class="checklist-row"
-                                data-inventory-id="{{ $inventory->id }}"
-                                data-location-id="{{ $inventory->location_id }}"
-                                style="border-bottom: 1px solid #e2e8f0;"
-                            >
-                                {{-- CHECKBOX --}}
-                                <td
-                                    style="padding: 12px; text-align: center; vertical-align: top;"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        class="item-checkbox"
-                                        value="{{ $inventory->id }}"
-                                        disabled
-                                    >
-                                </td>
-
-                                {{-- PRODUCT --}}
-                                <td
-                                    style="padding: 12px; vertical-align: top;"
-                                >
-                                    <div
-                                        style="font-weight: 600; color: #1e293b;"
-                                        class="product-name-label"
-                                    >
-                                        {{ $inventory->product->name }}
-                                    </div>
-
-                                    <div
-                                        style="font-size: 12px; color: #64748b; margin-top: 2px;"
-                                    >
-                                        Location:
-                                        <strong>
-                                            {{ $inventory->location->name }}
-                                        </strong>
-                                    </div>
-
-                                    <div
-                                        style="font-size: 12px; color: #059669; margin-top: 2px;"
-                                    >
-                                        Available:
-                                        {{ format_qty((float) $inventory->base_quantity) }}
-                                        base units
-                                    </div>
-
-                                    <input
-                                        type="hidden"
-                                        class="source-inventory-id-input"
-                                        disabled
-                                        value="{{ $inventory->id }}"
-                                    >
-                                </td>
-
-                                {{-- UNIT --}}
-                                <td
-                                    style="padding: 12px; vertical-align: top;"
-                                >
-                                    <select
-                                        class="unit-select"
-                                        disabled
-                                        style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;"
-                                    >
-                                        <option value="">
-                                            -- Select Unit --
-                                        </option>
-
-                                        @foreach ($productUnits as $pu)
-
-                                            @php
-                                                $unit =
-                                                    $pu->unit_of_measure
-                                                    ?? $pu->unitOfMeasure;
-                                            @endphp
-
-                                            @if ($unit)
-
-                                                <option
-                                                    value="{{ $pu->id }}"
-                                                    data-conversion="{{ $pu->conversion_factor }}"
-                                                    data-unit-code="{{ $unit->code }}"
-                                                >
-                                                    {{ $unit->name }}
-                                                    ({{ $unit->code }})
-                                                    -
-                                                    1 =
-                                                    {{ format_qty((float) $pu->conversion_factor) }}
-                                                    base
-                                                </option>
-
-                                            @endif
-
-                                        @endforeach
-                                    </select>
-
-                                    <small
-                                        class="unit-error"
-                                        style="display: block; margin-top: 4px; color: #dc2626; font-size: 11px;"
-                                    ></small>
-                                </td>
-
-                                {{-- QUANTITY --}}
-                                <td
-                                    style="padding: 12px; vertical-align: top;"
-                                >
-                                    <input
-                                        type="text" inputmode="decimal" autocomplete="off" data-numeric
-                                        class="quantity-input"
-                                        min="0.0001"
-                                        step="0.0001"
-                                        disabled
-                                        placeholder="Enter quantity"
-                                        style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;"
-                                    >
-
-                                    <div
-                                        class="row-preview"
-                                        style="display: none; margin-top: 6px; font-size: 11px; color: #475569; background: #f1f5f9; padding: 6px; border-radius: 4px;"
-                                    ></div>
-                                </td>
-                            </tr>
-
-                        @endif
-
-                    @endforeach
-
+                <tbody id="transfer-items-body">
+                    <tr class="transfer-items-empty">
+                        <td colspan="5">
+                            No items yet. Choose a product above and press Add.
+                        </td>
+                    </tr>
                 </tbody>
+
             </table>
+
         </div>
 
-        {{-- =========================
-             PAGINATION
-        ========================== --}}
-        <div
-            id="checklist-pagination"
-            style="
+        <div id="transfer-items-summary" class="transfer-items-summary">0 items</div>
+
+        <style>
+
+            .transfer-picker {
                 display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 6px;
-                flex-wrap: wrap;
-                margin-bottom: 24px;
-            "
-        >
-            <button
-                type="button"
-                id="checklist-prev"
-                class="btn btn-secondary"
-                disabled
-            >
-                ← Previous
-            </button>
+                align-items: flex-end;
+                gap: 10px;
+                margin-bottom: 14px;
+            }
 
-            <div
-                id="checklist-page-buttons"
-                style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;"
-            ></div>
+            .transfer-picker-field {
+                flex: 1;
+                min-width: 0;
+            }
 
-            <button
-                type="button"
-                id="checklist-next"
-                class="btn btn-secondary"
-                disabled
-            >
-                Next →
-            </button>
-        </div>
+            .transfer-picker .btn {
+                min-height: 40px;
+                min-width: 90px;
+            }
 
-        <hr
-            style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;"
-        >
+            .transfer-items-table td {
+                vertical-align: top;
+            }
+
+            .transfer-items-table select,
+            .transfer-items-table input {
+                width: 100%;
+            }
+
+            .transfer-item-name {
+                font-weight: 600;
+                color: #0f172a;
+            }
+
+            .transfer-item-meta {
+                margin-top: 2px;
+                color: #64748b;
+                font-size: 12.5px;
+            }
+
+            .transfer-item-moves {
+                padding-top: 10px;
+                color: #334155;
+                font-size: 13px;
+            }
+
+            .transfer-item-error {
+                display: block;
+                margin-top: 4px;
+                color: #b91c1c;
+                font-size: 12.5px;
+            }
+
+            .transfer-items-empty td {
+                padding: 26px 16px;
+                text-align: center;
+                color: #64748b;
+            }
+
+            .transfer-items-summary {
+                margin: 8px 0 18px;
+                color: #475569;
+                font-size: 13px;
+            }
+
+            @media (max-width: 700px) {
+                .transfer-picker {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+            }
+
+        </style>
+
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 0 0 24px;">
 
         {{-- =========================
-             REFERENCE
+             REFERENCE + NOTES (side by side)
         ========================== --}}
-        <div
-            class="form-group"
-            style="margin-bottom: 16px;"
-        >
-            <label
-                for="reference"
-                style="font-weight: bold; display: block; margin-bottom: 6px;"
-            >
-                Reference
-            </label>
+        <div class="transfer-grid">
 
-            <input
-                type="text"
-                id="reference"
-                name="reference"
-                value="{{ old('reference') }}"
-                maxlength="255"
-                placeholder="e.g. Multi-product checklist transfer batch"
-                style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"
-            >
-        </div>
+            <div class="form-group">
+                <label for="reference">Reference</label>
 
-        {{-- =========================
-             NOTES
-        ========================== --}}
-        <div
-            class="form-group"
-            style="margin-bottom: 20px;"
-        >
-            <label
-                for="notes"
-                style="font-weight: bold; display: block; margin-bottom: 6px;"
-            >
-                Notes
-            </label>
+                <input
+                    type="text"
+                    id="reference"
+                    name="reference"
+                    value="{{ old('reference') }}"
+                    maxlength="255"
+                    placeholder="e.g. Weekly restock for Pasig"
+                >
+            </div>
 
-            <textarea
-                id="notes"
-                name="notes"
-                rows="3"
-                placeholder="Optional transfer notes..."
-                style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"
-            >{{ old('notes') }}</textarea>
+            <div class="form-group">
+                <label for="notes">Notes</label>
+
+                <textarea
+                    id="notes"
+                    name="notes"
+                    rows="2"
+                    style="min-height: 42px;"
+                    placeholder="Optional notes for the receiver..."
+                >{{ old('notes') }}</textarea>
+            </div>
+
         </div>
 
         {{-- =========================
              BUTTONS
         ========================== --}}
         <div
-            style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 25px;"
+            style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;"
         >
             <button
                 type="submit"
@@ -461,7 +321,7 @@
                 id="submit-button"
                 disabled
             >
-                Transfer Selected Stock
+                Transfer Stock
             </button>
 
             <a
@@ -475,912 +335,277 @@
     </form>
 </div>
 
-{{-- =========================
-     SAFE DATA CONTAINER
-========================== --}}
-<div
-    id="transfer-data-container"
-    data-inventories='@json($inventories)'
-    style="display: none;"
-></div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const dataContainer =
-        document.getElementById('transfer-data-container');
-
-    const inventories =
-        JSON.parse(
-            dataContainer.dataset.inventories || '[]'
-        );
-
-    const destinationSelect =
-        document.getElementById('destination_location_id');
-
-    const submitButton =
-        document.getElementById('submit-button');
-
-    const selectAllCheckbox =
-        document.getElementById('select-all-checkbox');
-
-    const checklistRows =
-        Array.from(
-            document.querySelectorAll('.checklist-row')
-        );
-
-    const pageInfo =
-        document.getElementById('checklist-page-info');
-
-    const selectionInfo =
-        document.getElementById('checklist-selection-info');
-
-    const prevButton =
-        document.getElementById('checklist-prev');
-
-    const nextButton =
-        document.getElementById('checklist-next');
-
-    const pageButtons =
-        document.getElementById('checklist-page-buttons');
-
-
-    /* =========================
-       PAGINATION SETTINGS
-    ========================== */
-
-    const ITEMS_PER_PAGE = 5;
-
-    let currentPage = 1;
-
-
-    /* =========================
-       HELPERS
-    ========================== */
-
-    function formatNumber(value) {
-        const num = Number(value || 0);
-        return parseFloat(num.toFixed(2)).toString();
-    }
-
-
-    function getInventoryById(id) {
-        return inventories.find(
-            inv => String(inv.id) === String(id)
-        );
-    }
-
-
-    function getTotalPages() {
-        return Math.max(
-            1,
-            Math.ceil(checklistRows.length / ITEMS_PER_PAGE)
-        );
-    }
-
-
-    function getSelectedCount() {
-        return checklistRows.filter(row => {
-            const checkbox =
-                row.querySelector('.item-checkbox');
-
-            return checkbox.checked;
-        }).length;
-    }
-
-
-    /* =========================
-       UPDATE PAGE DISPLAY
-    ========================== */
-
-    function renderPagination() {
-
-        const totalItems =
-            checklistRows.length;
-
-        const totalPages =
-            getTotalPages();
-
-        if (currentPage > totalPages) {
-            currentPage = totalPages;
-        }
-
-        const startIndex =
-            (currentPage - 1) * ITEMS_PER_PAGE;
-
-        const endIndex =
-            Math.min(
-                startIndex + ITEMS_PER_PAGE,
-                totalItems
-            );
-
-
-        /*
-         * Show only 5 rows at a time.
-         */
-        checklistRows.forEach((row, index) => {
-
-            if (
-                index >= startIndex &&
-                index < endIndex
-            ) {
-                row.style.display = 'table-row';
-            } else {
-                row.style.display = 'none';
-            }
-
-        });
-
-
-        /*
-         * Page information.
-         */
-        if (totalItems === 0) {
-
-            pageInfo.textContent =
-                'No inventory items available';
-
-        } else {
-
-            pageInfo.textContent =
-                `Showing ${startIndex + 1}-${endIndex} of ${totalItems} items`;
-        }
-
-
-        /*
-         * Selected count.
-         *
-         * This counts selections across ALL pages,
-         * not just the current page.
-         */
-        selectionInfo.textContent =
-            `${getSelectedCount()} selected`;
-
-
-        /*
-         * Previous / Next buttons.
-         */
-        prevButton.disabled =
-            currentPage <= 1;
-
-        nextButton.disabled =
-            currentPage >= totalPages;
-
-
-        /*
-         * Page number buttons.
-         */
-        pageButtons.innerHTML = '';
-
-
-        for (
-            let page = 1;
-            page <= totalPages;
-            page++
-        ) {
-
-            const button =
-                document.createElement('button');
-
-            button.type = 'button';
-
-            button.textContent = page;
-
-            button.style.minWidth = '36px';
-            button.style.padding = '7px 10px';
-            button.style.border = '1px solid #cbd5e1';
-            button.style.borderRadius = '6px';
-            button.style.cursor = 'pointer';
-
-
-            if (page === currentPage) {
-
-                button.style.background =
-                    '#2563eb';
-
-                button.style.color =
-                    '#fff';
-
-                button.style.borderColor =
-                    '#2563eb';
-
-            } else {
-
-                button.style.background =
-                    '#fff';
-
-                button.style.color =
-                    '#334155';
-            }
-
-
-            button.addEventListener(
-                'click',
-                function () {
-
-                    currentPage = page;
-
-                    renderPagination();
-                    updateSelectAllState();
-                }
-            );
-
-
-            pageButtons.appendChild(button);
-        }
-
-
-        updateSelectAllState();
-    }
-
-
-    /* =========================
-       UPDATE SELECT ALL
-    ========================== */
-
-    function updateSelectAllState() {
-
-        const visibleRows =
-            checklistRows.filter(
-                row => row.style.display !== 'none'
-            );
-
-
-        const selectableRows =
-            visibleRows.filter(
-                row =>
-                    !row.dataset.disabledSameLocation
-            );
-
-
-        if (
-            !destinationSelect.value ||
-            selectableRows.length === 0
-        ) {
-
-            selectAllCheckbox.disabled = true;
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-
+    /*
+     * Stock that can be moved: one entry per stock record (product at a
+     * location), with the units it can be counted in.
+     */
+    const options = @json($transferOptions);
+    const oldItems = @json(old('items', []));
+
+    const form = document.getElementById('transfer-form');
+    const destinationSelect = document.getElementById('destination_location_id');
+    const receiverSelect = document.getElementById('receiver_id');
+    const picker = document.getElementById('transfer-product-picker');
+    const addButton = document.getElementById('transfer-add-button');
+    const body = document.getElementById('transfer-items-body');
+    const summary = document.getElementById('transfer-items-summary');
+    const submitButton = document.getElementById('submit-button');
+
+    const added = []; // stock record ids in the table, in order
+
+    /*
+     * The receiver must work at the destination: people assigned to that
+     * location, plus admins who aren't tied to any one location. Anyone
+     * else is hidden (the server checks the same rule).
+     */
+    const receiverOptions = Array.from(receiverSelect.options).filter(o => o.value);
+    const receiverHelper = document.getElementById('receiver-helper');
+
+    function renderReceivers() {
+        const destination = destinationSelect.value;
+        const keep = receiverSelect.value;
+
+        receiverSelect.innerHTML = '';
+
+        if (!destination) {
+            receiverSelect.add(new Option('Select a destination first', ''));
+            receiverSelect.disabled = true;
+            receiverHelper.textContent = 'Someone at the destination who will check and accept the stock.';
+            receiverHelper.classList.remove('is-warning');
             return;
         }
 
+        const allowed = receiverOptions.filter(o =>
+            o.dataset.location ? o.dataset.location === String(destination) : o.dataset.admin === '1'
+        );
 
-        selectAllCheckbox.disabled = false;
+        receiverSelect.add(new Option(allowed.length ? 'Select receiver' : 'No one works at this location yet', ''));
+        allowed.forEach(o => receiverSelect.add(o));
+        receiverSelect.value = allowed.some(o => o.value === keep) ? keep : '';
+        receiverSelect.disabled = allowed.length === 0;
 
+        receiverHelper.textContent = allowed.length
+            ? 'Only people at ' + destinationSelect.options[destinationSelect.selectedIndex].text.trim().split(' (')[0] + ' can receive this.'
+            : 'Assign a staff member or manager to this location under Users first.';
+        receiverHelper.classList.toggle('is-warning', allowed.length === 0);
+    }
 
-        const checkedCount =
-            selectableRows.filter(row => {
+    destinationSelect.addEventListener('change', renderReceivers);
+    renderReceivers();
+    function fmt(value) {
+        return parseFloat(Number(value || 0).toFixed(2)).toString();
+    }
 
-                const checkbox =
-                    row.querySelector('.item-checkbox');
+    function esc(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
 
-                return checkbox.checked;
+    function option(id) {
+        return options.find(o => String(o.id) === String(id));
+    }
 
-            }).length;
+    /* The dropdown lists stock that isn't already at the destination or already in the table. */
+    function renderPicker() {
+        const destination = destinationSelect.value;
 
+        picker.innerHTML = '';
 
-        if (
-            checkedCount === selectableRows.length
-        ) {
-
-            selectAllCheckbox.checked = true;
-            selectAllCheckbox.indeterminate = false;
-
-        } else if (checkedCount > 0) {
-
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = true;
-
-        } else {
-
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
+        if (!destination) {
+            picker.add(new Option('Select a destination first', ''));
+            picker.disabled = true;
+            addButton.disabled = true;
+            return;
         }
-    }
 
+        const choices = options.filter(o =>
+            String(o.location_id) !== String(destination) && !added.includes(o.id)
+        );
 
-    /* =========================
-       UPDATE INPUT INDEXING
-    ========================== */
+        picker.add(new Option(choices.length ? 'Select a product to transfer...' : 'No more stock available to transfer', ''));
 
-    function updateRowIndexing() {
+        const byLocation = {};
 
-        let activeIndex = 0;
-
-        checklistRows.forEach(row => {
-
-            const checkbox =
-                row.querySelector('.item-checkbox');
-
-            const sourceInput =
-                row.querySelector('.source-inventory-id-input');
-
-            const unitSelect =
-                row.querySelector('.unit-select');
-
-            const qtyInput =
-                row.querySelector('.quantity-input');
-
-
-            if (
-                checkbox.checked &&
-                !row.dataset.disabledSameLocation
-            ) {
-
-                sourceInput.disabled = false;
-
-                sourceInput.name =
-                    `items[${activeIndex}][source_inventory_id]`;
-
-                unitSelect.name =
-                    `items[${activeIndex}][product_unit_id]`;
-
-                qtyInput.name =
-                    `items[${activeIndex}][quantity]`;
-
-                activeIndex++;
-
-            } else {
-
-                sourceInput.disabled = true;
-                sourceInput.removeAttribute('name');
-
-                unitSelect.removeAttribute('name');
-
-                qtyInput.removeAttribute('name');
-            }
+        choices.forEach(o => {
+            (byLocation[o.location] = byLocation[o.location] || []).push(o);
         });
-    }
 
+        Object.keys(byLocation).sort().forEach(location => {
+            const group = document.createElement('optgroup');
+            group.label = 'From ' + location;
 
-    /* =========================
-       DESTINATION CHANGE
-    ========================== */
-
-    function handleDestinationChange() {
-
-        const destinationId =
-            destinationSelect.value;
-
-
-        if (!destinationId) {
-
-            selectAllCheckbox.disabled = true;
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-
-            checklistRows.forEach(row => {
-
-                const checkbox =
-                    row.querySelector('.item-checkbox');
-
-                const unitSelect =
-                    row.querySelector('.unit-select');
-
-                const qtyInput =
-                    row.querySelector('.quantity-input');
-
-                const previewDiv =
-                    row.querySelector('.row-preview');
-
-
-                checkbox.disabled = true;
-                checkbox.checked = false;
-
-                unitSelect.disabled = true;
-                unitSelect.value = '';
-
-                qtyInput.disabled = true;
-                qtyInput.value = '';
-
-                row.style.opacity = '1';
-                row.style.background = 'transparent';
-
-                previewDiv.style.display = 'none';
-
-                delete row.dataset.disabledSameLocation;
+            byLocation[location].forEach(o => {
+                group.appendChild(new Option(
+                    o.product + (o.sku ? ' (' + o.sku + ')' : '') + ' - ' + fmt(o.available) + ' ' + o.base + ' available',
+                    o.id
+                ));
             });
 
-            updateRowIndexing();
+            picker.appendChild(group);
+        });
 
-            evaluateFormState();
+        picker.disabled = choices.length === 0;
+        addButton.disabled = true;
+    }
 
-            renderPagination();
+    function addRow(id, unitId, quantity) {
+        const o = option(id);
 
+        if (!o || added.includes(o.id)) {
             return;
         }
 
+        added.push(o.id);
 
-        checklistRows.forEach(row => {
+        const row = document.createElement('tr');
+        row.className = 'transfer-item-row';
+        row.dataset.id = o.id;
 
-            const rowLocationId =
-                row.dataset.locationId;
+        const unitOptions = o.units.map(u =>
+            '<option value="' + u.id + '" data-factor="' + u.factor + '" data-code="' + esc(u.code) + '">' +
+            esc(u.name) + ' (' + esc(u.code) + ')' + (u.factor !== 1 ? ' = ' + fmt(u.factor) + ' ' + esc(o.base) : '') +
+            '</option>'
+        ).join('');
 
-            const checkbox =
-                row.querySelector('.item-checkbox');
+        row.innerHTML =
+            '<td>' +
+                '<div class="transfer-item-name">' + esc(o.product) + '</div>' +
+                '<div class="transfer-item-meta">From ' + esc(o.location) + ' &middot; ' + fmt(o.available) + ' ' + esc(o.base) + ' available</div>' +
+                '<input type="hidden" data-field="source_inventory_id" value="' + o.id + '">' +
+            '</td>' +
+            '<td><select data-field="product_unit_id" required>' + unitOptions + '</select></td>' +
+            '<td>' +
+                '<input type="text" inputmode="decimal" autocomplete="off" data-numeric step="0.1" min="0.1" data-field="quantity" placeholder="0" required>' +
+                '<small class="transfer-item-error" hidden></small>' +
+            '</td>' +
+            '<td class="transfer-item-moves">-</td>' +
+            '<td><button type="button" class="btn btn-danger transfer-item-remove">Remove</button></td>';
 
-            const unitSelect =
-                row.querySelector('.unit-select');
+        body.appendChild(row);
 
-            const qtyInput =
-                row.querySelector('.quantity-input');
+        const unitSelect = row.querySelector('[data-field="product_unit_id"]');
+        const qtyInput = row.querySelector('[data-field="quantity"]');
 
-            const previewDiv =
-                row.querySelector('.row-preview');
+        if (unitId && unitSelect.querySelector('option[value="' + unitId + '"]')) {
+            unitSelect.value = String(unitId);
+        }
 
+        if (quantity) {
+            qtyInput.value = quantity;
+        }
 
-            if (
-                String(rowLocationId) ===
-                String(destinationId)
-            ) {
+        unitSelect.addEventListener('change', refresh);
+        qtyInput.addEventListener('input', refresh);
 
-                row.dataset.disabledSameLocation = 'true';
+        row.querySelector('.transfer-item-remove').addEventListener('click', function () {
+            added.splice(added.indexOf(o.id), 1);
+            row.remove();
+            renderPicker();
+            refresh();
+        });
 
-                checkbox.disabled = true;
-                checkbox.checked = false;
+        if (!quantity) {
+            qtyInput.focus();
+        }
+    }
 
-                unitSelect.disabled = true;
-                unitSelect.value = '';
+    /* Check each row, name its fields items[n][...], and decide whether the form can be sent. */
+    function refresh() {
+        const rows = Array.from(body.querySelectorAll('.transfer-item-row'));
+        let allValid = rows.length > 0;
 
-                qtyInput.disabled = true;
-                qtyInput.value = '';
+        body.querySelector('.transfer-items-empty').hidden = rows.length > 0;
 
-                row.style.opacity = '0.45';
-                row.style.background = '#f1f5f9';
+        rows.forEach((row, index) => {
+            const o = option(row.dataset.id);
+            const unit = row.querySelector('[data-field="product_unit_id"]');
+            const qty = row.querySelector('[data-field="quantity"]');
+            const error = row.querySelector('.transfer-item-error');
+            const moves = row.querySelector('.transfer-item-moves');
 
-                previewDiv.style.display = 'block';
-                previewDiv.style.color = '#dc2626';
+            row.querySelectorAll('[data-field]').forEach(field => {
+                field.name = 'items[' + index + '][' + field.dataset.field + ']';
+            });
 
-                previewDiv.textContent =
-                    'Unavailable: Source is same as destination location.';
+            const factor = Number(unit.selectedOptions[0] ? unit.selectedOptions[0].dataset.factor : 0);
+            const amount = Number(qty.value);
+            const base = amount * factor;
+            let message = '';
 
+            if (qty.value === '' || !(amount > 0)) {
+                message = qty.value === '' ? '' : 'Enter more than 0.';
+                allValid = false;
+                moves.textContent = '-';
             } else {
+                moves.textContent = fmt(base) + ' ' + o.base;
 
-                delete row.dataset.disabledSameLocation;
-
-                checkbox.disabled = false;
-
-                row.style.opacity = '1';
-
-                if (!checkbox.checked) {
-
-                    row.style.background = 'transparent';
-                    previewDiv.style.display = 'none';
-
-                } else {
-
-                    row.style.background = '#f0fdf4';
+                if (base > o.available + 0.0000001) {
+                    message = 'Only ' + fmt(o.available) + ' ' + o.base + ' available.';
+                    allValid = false;
                 }
             }
+
+            error.textContent = message;
+            error.hidden = message === '';
         });
 
+        summary.textContent = rows.length + (rows.length === 1 ? ' item' : ' items');
 
-        updateRowIndexing();
-
-        evaluateFormState();
-
-        renderPagination();
+        submitButton.disabled = !(allValid && destinationSelect.value && receiverSelect.value);
     }
 
-
-    /* =========================
-       EVALUATE ROW
-    ========================== */
-
-    function evaluateRow(row) {
-
-        if (row.dataset.disabledSameLocation) {
-            return false;
-        }
-
-
-        const checkbox =
-            row.querySelector('.item-checkbox');
-
-        const unitSelect =
-            row.querySelector('.unit-select');
-
-        const qtyInput =
-            row.querySelector('.quantity-input');
-
-        const previewDiv =
-            row.querySelector('.row-preview');
-
-        const inventoryId =
-            row.dataset.inventoryId;
-
-        const inventory =
-            getInventoryById(inventoryId);
-
-
-        if (!checkbox.checked) {
-
-            unitSelect.disabled = true;
-            unitSelect.value = '';
-
-            qtyInput.disabled = true;
-            qtyInput.value = '';
-
-            previewDiv.style.display = 'none';
-
-            return false;
-        }
-
-
-        unitSelect.disabled = false;
-
-
-        if (!unitSelect.value) {
-
-            qtyInput.disabled = true;
-            qtyInput.value = '';
-
-            previewDiv.style.display = 'none';
-
-            return false;
-        }
-
-
-        qtyInput.disabled = false;
-
-
-        const quantity =
-            Number(qtyInput.value);
-
-
-        if (
-            !Number.isFinite(quantity) ||
-            quantity <= 0
-        ) {
-
-            previewDiv.style.display = 'none';
-
-            return false;
-        }
-
-
-        const selectedOption =
-            unitSelect.options[
-                unitSelect.selectedIndex
-            ];
-
-
-        const conversion =
-            Number(
-                selectedOption.dataset.conversion || 1
-            );
-
-
-        const unitCode =
-            selectedOption.dataset.unitCode || '';
-
-
-        const requestedBase =
-            quantity * conversion;
-
-
-        previewDiv.style.display = 'block';
-
-
-        if (
-            requestedBase >
-            Number(inventory.base_quantity)
-        ) {
-
-            previewDiv.style.color = '#dc2626';
-
-            previewDiv.textContent =
-                `Exceeds available stock (${formatNumber(requestedBase)} base requested > ${formatNumber(inventory.base_quantity)} available).`;
-
-            return false;
-        }
-
-
-        previewDiv.style.color = '#059669';
-
-        previewDiv.textContent =
-            `Valid: ${quantity} ${unitCode} = ${formatNumber(requestedBase)} base units.`;
-
-        return true;
-    }
-
-
-    /* =========================
-       EVALUATE FORM
-    ========================== */
-
-    function evaluateFormState() {
-
-        let validCount = 0;
-        let allCheckedValid = true;
-        let anyChecked = false;
-
-
-        checklistRows.forEach(row => {
-
-            if (row.dataset.disabledSameLocation) {
-                return;
-            }
-
-
-            const checkbox =
-                row.querySelector('.item-checkbox');
-
-
-            if (checkbox.checked) {
-
-                anyChecked = true;
-
-
-                if (evaluateRow(row)) {
-
-                    validCount++;
-
-                } else {
-
-                    allCheckedValid = false;
-                }
-            }
-        });
-
-
-        updateRowIndexing();
-
-
-        const isDestinationSelected =
-            destinationSelect.value !== '';
-
-
-        submitButton.disabled =
-            !(
-                anyChecked &&
-                allCheckedValid &&
-                isDestinationSelected &&
-                validCount > 0
-            );
-
-
-        selectionInfo.textContent =
-            `${getSelectedCount()} selected`;
-
-
-        updateSelectAllState();
-    }
-
-
-    /* =========================
-       CHECKLIST EVENTS
-    ========================== */
-
-    checklistRows.forEach(row => {
-
-        const checkbox =
-            row.querySelector('.item-checkbox');
-
-        const unitSelect =
-            row.querySelector('.unit-select');
-
-        const qtyInput =
-            row.querySelector('.quantity-input');
-
-
-        checkbox.addEventListener(
-            'change',
-            () => {
-
-                if (
-                    row.dataset.disabledSameLocation
-                ) {
-                    return;
-                }
-
-
-                if (checkbox.checked) {
-
-                    row.style.background =
-                        '#f0fdf4';
-
-                } else {
-
-                    row.style.background =
-                        'transparent';
-                }
-
-
-                evaluateFormState();
-                renderPagination();
-            }
-        );
-
-
-        unitSelect.addEventListener(
-            'change',
-            evaluateFormState
-        );
-
-
-        qtyInput.addEventListener(
-            'input',
-            evaluateFormState
-        );
+    picker.addEventListener('change', function () {
+        addButton.disabled = !picker.value;
     });
 
-
-    /* =========================
-       DESTINATION EVENT
-    ========================== */
-
-    destinationSelect.addEventListener(
-        'change',
-        handleDestinationChange
-    );
-
-
-    /* =========================
-       SELECT ALL CURRENT PAGE
-    ========================== */
-
-    selectAllCheckbox.addEventListener(
-        'change',
-        () => {
-
-            const isChecked =
-                selectAllCheckbox.checked;
-
-
-            checklistRows.forEach(row => {
-
-                /*
-                 * Only select rows currently visible
-                 * on this page.
-                 */
-                if (
-                    row.style.display === 'none'
-                ) {
-                    return;
-                }
-
-
-                if (
-                    row.dataset.disabledSameLocation
-                ) {
-                    return;
-                }
-
-
-                const checkbox =
-                    row.querySelector('.item-checkbox');
-
-
-                checkbox.checked =
-                    isChecked;
-
-
-                row.style.background =
-                    isChecked
-                        ? '#f0fdf4'
-                        : 'transparent';
-            });
-
-
-            evaluateFormState();
-            renderPagination();
+    addButton.addEventListener('click', function () {
+        if (!picker.value) {
+            return;
         }
-    );
 
+        addRow(picker.value);
+        renderPicker();
+        refresh();
+    });
 
-    /* =========================
-       PREVIOUS PAGE
-    ========================== */
+    /* Changing the destination drops any item that is already at the new destination. */
+    destinationSelect.addEventListener('change', function () {
+        Array.from(body.querySelectorAll('.transfer-item-row')).forEach(row => {
+            const o = option(row.dataset.id);
 
-    prevButton.addEventListener(
-        'click',
-        function () {
-
-            if (currentPage <= 1) {
-                return;
+            if (String(o.location_id) === String(destinationSelect.value)) {
+                added.splice(added.indexOf(o.id), 1);
+                row.remove();
             }
+        });
 
+        renderPicker();
+        refresh();
+    });
 
-            currentPage--;
+    receiverSelect.addEventListener('change', refresh);
 
-            renderPagination();
+    form.addEventListener('submit', function (event) {
+        refresh();
 
-            updateSelectAllState();
-
-            /*
-             * Keep the user near the checklist when
-             * changing pages.
-             */
-            document
-                .getElementById('checklist-body')
-                .closest('table')
-                .scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
+        if (submitButton.disabled) {
+            event.preventDefault();
         }
-    );
+    });
 
-
-    /* =========================
-       NEXT PAGE
-    ========================== */
-
-    nextButton.addEventListener(
-        'click',
-        function () {
-
-            const totalPages =
-                getTotalPages();
-
-
-            if (
-                currentPage >= totalPages
-            ) {
-                return;
-            }
-
-
-            currentPage++;
-
-            renderPagination();
-
-            updateSelectAllState();
-
-            document
-                .getElementById('checklist-body')
-                .closest('table')
-                .scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
+    /* After a failed save, put back what was entered. */
+    (Array.isArray(oldItems) ? oldItems : Object.values(oldItems)).forEach(item => {
+        if (item && item.source_inventory_id) {
+            addRow(item.source_inventory_id, item.product_unit_id, item.quantity);
         }
-    );
+    });
 
-
-    /* =========================
-       INITIAL STATE
-    ========================== */
-
-    handleDestinationChange();
-
-    renderPagination();
-
-
-    /* =========================
-       SUBMIT PROTECTION
-    ========================== */
-
-    document
-        .getElementById('transfer-form')
-        .addEventListener(
-            'submit',
-            function (e) {
-
-                if (submitButton.disabled) {
-
-                    e.preventDefault();
-
-                    return;
-                }
-
-
-                /*
-                 * Make sure every selected item has
-                 * its correct input name before submit.
-                 */
-                updateRowIndexing();
-
-
-                submitButton.disabled = true;
-
-                submitButton.textContent =
-                    'Transferring...';
-            }
-        );
-
+    renderPicker();
+    refresh();
 });
 </script>
 

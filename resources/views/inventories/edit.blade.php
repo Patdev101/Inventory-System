@@ -309,7 +309,7 @@
 
                 {{ format_qty((float) $inventory->base_quantity) }}
 
-                base units
+                {{ $inventory->product?->counting_unit ?? 'units' }}
 
             </div>
 
@@ -609,7 +609,7 @@
                             class="form-control"
                             value="{{ old('quantity') }}"
                             min="0.0001"
-                            step="0.0001"
+                            step="0.1"
                             required
                         >
 
@@ -618,6 +618,63 @@
                             Enter the amount of stock you want to
                             <strong id="quantity-action">add</strong>.
 
+                        </div>
+
+                    </td>
+
+                </tr>
+
+
+                {{-- EXPIRY DATE: stock coming IN only; optional. --}}
+
+                <tr id="expiry-row" hidden>
+
+                    <th>
+                        <label for="expiry_date">Expiry Date</label>
+                    </th>
+
+                    <td>
+
+                        <input
+                            type="date"
+                            name="expiry_date"
+                            id="expiry_date"
+                            class="form-control"
+                            value="{{ old('expiry_date') }}"
+                            style="max-width: 240px;"
+                        >
+
+                        <div class="help-text">
+                            Optional. Enter it if the stock has an expiry date, and you'll be warned before it expires.
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {{-- REMARKS: why the stock is moving, kept on the transaction. --}}
+
+
+                <tr>
+
+                    <th>
+                        <label for="remarks">Remarks</label>
+                    </th>
+
+                    <td>
+
+                        <textarea
+                            name="remarks"
+                            id="remarks"
+                            class="form-control"
+                            rows="3"
+                            maxlength="500"
+                            required
+                            placeholder="Why is this stock being added or removed? e.g. delivery received, damaged, expired, pulled out for display"
+                        >{{ old('remarks') }}</textarea>
+
+                        <div class="help-text">
+                            Required. Saved with the stock movement so anyone can see the reason later.
                         </div>
 
                     </td>
@@ -653,7 +710,7 @@
                             <div class="preview-row">
 
                                 <strong>
-                                    Movement in base units:
+                                    Movement in {{ $inventory->product?->counting_unit ?? 'units' }}:
                                 </strong>
 
                                 <span id="base-movement-preview">
@@ -751,6 +808,9 @@
 
 
 <script>
+    // The unit this product's stock is counted in (PCS, KG...), for the previews below.
+    const countingUnit = @json($inventory->product?->counting_unit ?? 'units');
+
 
 function formatQty(value) {
     const num = Number(value);
@@ -884,6 +944,11 @@ document.addEventListener('DOMContentLoaded', function () {
             movementType.value;
 
 
+        // Expiry date: offered (optional) only when stock is coming in.
+        const expiryRow = document.getElementById('expiry-row');
+        expiryRow.hidden = type !== 'in';
+
+
         movementIn.classList.toggle(
             'active',
             type === 'in'
@@ -975,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', function () {
         unitHelp.textContent =
             '1 selected unit = ' +
             factor +
-            ' base units.';
+            ' ' + countingUnit + '.';
 
     }
 
@@ -1057,7 +1122,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         baseMovementPreview.textContent =
             formatQty(movementBaseQuantity) +
-            ' base units';
+            ' ' + countingUnit;
 
 
         if (newBaseQuantity < 0) {
@@ -1079,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         newStockPreview.textContent =
             formatQty(newBaseQuantity) +
-            ' base units';
+            ' ' + countingUnit;
 
 
         if (type === 'in') {
@@ -1088,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<span class="adjustment-in">' +
                 'Stock will increase by ' +
                 formatQty(movementBaseQuantity) +
-                ' base units.' +
+                ' ' + countingUnit + '.' +
                 '</span>';
 
         } else {
@@ -1097,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<span class="adjustment-out">' +
                 'Stock will decrease by ' +
                 formatQty(movementBaseQuantity) +
-                ' base units.' +
+                ' ' + countingUnit + '.' +
                 '</span>';
 
         }

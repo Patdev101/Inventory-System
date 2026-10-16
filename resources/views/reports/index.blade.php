@@ -32,6 +32,14 @@
         </p>
     </a>
 
+    <a href="{{ route('reports.expiring') }}" class="card report-card">
+        <h2>Expiring Stock</h2>
+        <p>
+            <span class="report-count report-count-critical">{{ $expiryCounts['expired'] }}</span> expired,
+            <span class="report-count report-count-low">{{ $expiryCounts['expiring'] }}</span> expiring within {{ config('stockalerts.expiry_warning_days', 30) }} days.
+        </p>
+    </a>
+
 </div>
 
 <style>

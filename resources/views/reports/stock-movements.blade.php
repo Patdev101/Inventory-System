@@ -69,7 +69,7 @@
                         <td>{{ $transaction->location?->name ?? 'Deleted location' }}</td>
                         <td>{{ format_qty((float) $transaction->quantity) }} {{ $transaction->productUnit?->unitOfMeasure?->code }}</td>
                         <td>{{ format_qty((float) $transaction->base_quantity) }}</td>
-                        <td>{{ $transaction->reference ?: '-' }}</td>
+                        <td>{{ $transaction->reference ?: '-' }}@if ($transaction->notes)<small style="display: block; color: #64748b;">Remarks: {{ $transaction->notes }}</small>@endif</td>
                     </tr>
                 @endforeach
             </tbody>

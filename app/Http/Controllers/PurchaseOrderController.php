@@ -155,6 +155,7 @@ class PurchaseOrderController extends Controller
             ->with([
                 'productUnits.unitOfMeasure',
                 'category',
+                'baseUnit',
             ])
             ->where(
                 'company_id',
@@ -754,6 +755,16 @@ class PurchaseOrderController extends Controller
                 'numeric',
                 'gte:0',
             ],
+
+            'lines.*.expiry_date' => [
+
+                'nullable',
+
+                'date',
+
+            ],
+
+            
 
             'lines.*.notes' => [
                 'nullable',

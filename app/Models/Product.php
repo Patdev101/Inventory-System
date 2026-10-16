@@ -61,6 +61,15 @@ class Product extends Model
     /**
      * Public URL for the product image, or null when none is set.
      */
+    /**
+     * Short code of the unit this product's stock is counted in (PCS, KG...),
+     * so quantities read "30 PCS" instead of "30 base units".
+     */
+    public function getCountingUnitAttribute(): string
+    {
+        return $this->baseUnit?->code ?? 'units';
+    }
+
     public function getImageUrlAttribute(): ?string
     {
         if (!$this->image_path) {

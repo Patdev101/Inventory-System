@@ -16,6 +16,7 @@ class InventoryTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
+        'expiry_date',
     'inventory_id',
     'product_id',
     'location_id',
@@ -30,6 +31,7 @@ class InventoryTransaction extends Model
 
 
     protected $casts = [
+        'expiry_date' => 'date',
     'quantity' => 'decimal:4',
     'base_quantity' => 'decimal:4',
     'conversion_factor' => 'decimal:4',

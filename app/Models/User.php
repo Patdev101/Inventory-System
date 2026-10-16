@@ -81,6 +81,24 @@ class User extends Authenticatable
         return in_array($this->role, $roles, true);
     }
 
+    /**
+     * Who may receive (inspect and accept) a transfer into a location:
+     * someone assigned to that location, or an admin who isn't assigned to
+     * any one location. An admin assigned elsewhere may not.
+     */
+    public static function canReceiveAt(self $user, int $locationId): bool
+    {
+        if (! $user->is_active) {
+            return false;
+        }
+
+        if ($user->location_id) {
+            return (int) $user->location_id === $locationId;
+        }
+
+        return $user->isAdmin();
+    }
+
     public function isAdmin(): bool
     {
         return $this->hasRole(self::ROLE_ADMIN);

@@ -128,6 +128,7 @@ class ProductController extends Controller
                 'exists:units_of_measure,id',
             ],
 
+
             'reorder_point' => [
                 'required',
                 'numeric',
@@ -355,6 +356,7 @@ class ProductController extends Controller
                 'integer',
                 'exists:units_of_measure,id',
             ],
+
 
             'reorder_point' => [
                 'required',

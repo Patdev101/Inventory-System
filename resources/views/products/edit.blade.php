@@ -560,11 +560,11 @@
             </label>
 
             <input
-                type="text" inputmode="decimal" autocomplete="off" data-numeric
+                type="text" inputmode="decimal" autocomplete="off" data-numeric step="0.01"
                 id="cost_price"
                 name="cost_price"
                 class="form-control"
-                value="{{ old('cost_price', $product->cost_price) }}"
+                value="{{ old('cost_price', $product->cost_price !== null ? format_qty($product->cost_price) : '') }}"
                 min="0"
                 step="0.0001"
                 placeholder="0.00"
@@ -611,11 +611,11 @@
             </label>
 
             <input
-                type="text" inputmode="decimal" autocomplete="off" data-numeric
+                type="text" inputmode="decimal" autocomplete="off" data-numeric step="0.01"
                 id="markup_percentage"
                 name="markup_percentage"
                 class="form-control"
-                value="{{ old('markup_percentage', $product->markup_percentage) }}"
+                value="{{ old('markup_percentage', $product->markup_percentage !== null ? format_qty($product->markup_percentage) : '') }}"
                 min="0"
                 step="0.01"
                 placeholder="0.00"
@@ -632,11 +632,11 @@
             </label>
 
             <input
-                type="text" inputmode="decimal" autocomplete="off" data-numeric
+                type="text" inputmode="decimal" autocomplete="off" data-numeric step="0.01"
                 id="selling_price"
                 name="selling_price"
                 class="form-control"
-                value="{{ old('selling_price', $product->selling_price) }}"
+                value="{{ old('selling_price', $product->selling_price !== null ? format_qty($product->selling_price) : '') }}"
                 min="0"
                 step="0.01"
                 placeholder="0.00"
@@ -675,18 +675,17 @@
             </label>
 
             <input
-                type="text" inputmode="decimal" autocomplete="off" data-numeric
+                type="text" inputmode="decimal" autocomplete="off" data-numeric step="0.1"
                 id="reorder_point"
                 name="reorder_point"
                 class="form-control"
-                value="{{ old('reorder_point', $product->reorder_point) }}"
+                value="{{ old('reorder_point', $product->reorder_point !== null ? format_qty($product->reorder_point) : '') }}"
                 min="0"
                 step="0.0001"
                 required
             >
 
         </div>
-
 
         <div class="form-group">
 
@@ -1437,10 +1436,10 @@ document.addEventListener('DOMContentLoaded', function () {
             amount / factor;
 
         document.getElementById('cost_price').value =
-            costPerBaseUnit.toFixed(4);
+            costPerBaseUnit.toFixed(2);
 
         resultText.textContent =
-            'Done: \u20B1' + costPerBaseUnit.toFixed(4) + ' per ' + (baseUnitName() || 'counting unit') + ' has been entered as the cost price below.';
+            'Done: \u20B1' + costPerBaseUnit.toFixed(2) + ' per ' + (baseUnitName() || 'counting unit') + ' has been entered as the cost price below.';
 
         updatePricingUI();
         updateUnitPricingPreview();
@@ -1489,7 +1488,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         resultText.classList.add('is-ready');
-        resultText.textContent = 'Cost of one ' + base + ': \u20B1' + (amount / factor).toFixed(4)
+        resultText.textContent = 'Cost of one ' + base + ': \u20B1' + (amount / factor).toFixed(2)
             + '  (\u20B1' + amount.toFixed(2) + ' \u00F7 ' + formatQty(factor) + ')';
     }
 

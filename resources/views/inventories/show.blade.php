@@ -322,7 +322,7 @@
         <div class="summary-subtitle">
 
             {{ format_qty($baseQuantity) }}
-            base units
+            {{ $inventory->product?->counting_unit ?? 'units' }}
 
         </div>
 
@@ -404,7 +404,7 @@
                     @foreach ($transferCandidates as $candidate)
                         <option value="{{ $candidate->location_id }}">
                             {{ $candidate->location?->name ?? 'Location #' . $candidate->location_id }}
-                            ({{ format_qty($candidate->getBaseQuantityValue()) }} base units available)
+                            ({{ format_qty($candidate->getBaseQuantityValue()) }} {{ $inventory->product?->counting_unit ?? 'units' }} available)
                         </option>
                     @endforeach
                 </select>
@@ -437,7 +437,7 @@
                     name="quantity"
                     class="filter-input"
                     min="0.0001"
-                    step="0.0001"
+                    step="0.1"
                     required
                 >
             </div>
@@ -583,7 +583,7 @@
                     </strong>
 
                     <small style="color: #666;">
-                        Base units
+                        {{ $inventory->product?->counting_unit ?? 'units' }}
                     </small>
 
                 </td>
@@ -606,7 +606,7 @@
                     </strong>
 
                     <small style="color: #666;">
-                        Base units
+                        {{ $inventory->product?->counting_unit ?? 'units' }}
                     </small>
 
                 </td>
@@ -652,6 +652,62 @@
     </table>
 
 </div>
+
+
+{{-- =========================
+     EXPIRY DATES (products that expire)
+     The deliveries still on hand, oldest first.
+========================= --}}
+
+@if ($expiryBatches->isNotEmpty())
+    <div class="card" style="margin-top: 30px; padding: 0; overflow: hidden;">
+
+        <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
+            <h2 style="margin: 0;">Expiry Dates</h2>
+            <p style="margin: 4px 0 0; color: #64748b; font-size: 13px;">Stock on hand by delivery, oldest first. The oldest stock is assumed to go out first.</p>
+        </div>
+
+        @if ($expiryBatches->count())
+            <table>
+                <thead>
+                    <tr>
+                        <th>Received</th>
+                        <th>Quantity</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($expiryBatches as $batch)
+                        @php
+                            $daysLeft = $batch['expiry_date'] ? (int) now()->startOfDay()->diffInDays($batch['expiry_date'], false) : null;
+                            $warnDays = (int) config('stockalerts.expiry_warning_days', 30);
+                        @endphp
+                        <tr>
+                            <td>{{ $batch['received_at'] ? format_datetime($batch['received_at']) : '-' }}</td>
+                            <td>{{ format_qty($batch['base_quantity']) }} {{ $inventory->product->counting_unit }}</td>
+                            <td>{{ $batch['expiry_date'] ? $batch['expiry_date']->format('m/d/Y') : 'Not recorded' }}</td>
+                            <td>
+                                @if ($daysLeft === null)
+                                    <span style="color: #94a3b8;">&mdash;</span>
+                                @elseif ($daysLeft < 0)
+                                    <span class="status-badge" style="background: #fee2e2; color: #991b1b;">Expired</span>
+                                @elseif ($daysLeft <= $warnDays)
+                                    <span class="status-badge" style="background: #fef3c7; color: #92400e;">{{ $daysLeft === 0 ? 'Expires today' : $daysLeft . ' ' . ($daysLeft === 1 ? 'day' : 'days') . ' left' }}</span>
+                                @else
+                                    <span class="status-badge" style="background: #dcfce7; color: #166534;">OK</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <p style="margin: 0; padding: 18px 20px; color: #64748b;">No stock on hand.</p>
+        @endif
+
+    </div>
+@endif
 
 
 {{-- =========================
@@ -852,7 +908,7 @@
                                 <br>
 
                                 <small style="color: #666;">
-                                    Base units
+                                    {{ $inventory->product?->counting_unit ?? 'units' }}
                                 </small>
 
                             </td>
@@ -908,7 +964,7 @@
                                 <br>
 
                                 <small style="color: #666;">
-                                    Base units
+                                    {{ $inventory->product?->counting_unit ?? 'units' }}
                                 </small>
 
                             </td>
@@ -921,6 +977,9 @@
                                 @if ($transaction->reference)
 
                                     {{ $transaction->reference }}
+                                    @if ($transaction->notes)
+                    <small style="display: block; color: #64748b; white-space: normal;">Remarks: {{ $transaction->notes }}</small>
+                @endif
 
                                 @else
 

@@ -309,7 +309,7 @@
 
                             <td>
                                 {{ format_qty((float) $transfer->base_quantity) }}
-                                base units
+                                {{ $transfer->product?->counting_unit ?? 'units' }}
                             </td>
 
                             <td>

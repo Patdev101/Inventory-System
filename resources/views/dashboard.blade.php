@@ -2208,7 +2208,7 @@
 
             </style>
 
-            <section class="attention" aria-labelledby="attention-heading">
+            <section data-live="attention" class="attention" aria-labelledby="attention-heading">
 
                 <div class="attention-header">
                     <h2 id="attention-heading">Needs attention</h2>
@@ -2436,7 +2436,7 @@
                  KPI CARDS
             ================================================== --}}
 
-            <div class="stats">
+            <div data-live="stats" class="stats">
 
                 <div class="stat-card">
 
@@ -2529,7 +2529,7 @@
                  STOCK ALERT SUMMARY
             ================================================== --}}
 
-            <div class="stock-alert-summary">
+            <div data-live="alert-summary" class="stock-alert-summary">
 
                 <div class="stock-alert-summary-card alert-total">
 
@@ -2617,7 +2617,7 @@
                  STOCK ALERTS
             ================================================== --}}
 
-            <div class="section">
+            <div data-live="stock-alerts" class="section">
 
                 <h2 class="section-title">
                     Stock Alerts
@@ -2739,7 +2739,7 @@
 
                                                     {{ format_qty((float) $inventory->base_quantity) }}
 
-                                                    {{ $inventory->product?->baseUnit?->code ?? 'base units' }}
+                                                    {{ $inventory->product?->baseUnit?->code ?? 'units' }}
 
                                                 </td>
 
@@ -2911,7 +2911,7 @@
 
                                                     {{ format_qty((float) $inventory->base_quantity) }}
 
-                                                    {{ $inventory->product?->baseUnit?->code ?? 'base units' }}
+                                                    {{ $inventory->product?->baseUnit?->code ?? 'units' }}
 
                                                 </td>
 
@@ -3104,7 +3104,7 @@
 
                                                     {{ format_qty($currentBaseQuantity) }}
 
-                                                    {{ $inventory->product?->baseUnit?->code ?? 'base units' }}
+                                                    {{ $inventory->product?->baseUnit?->code ?? 'units' }}
 
                                                 </td>
 
@@ -3192,7 +3192,7 @@
                  MOVEMENT ANALYTICS
             ================================================== --}}
 
-            <div class="section">
+            <div data-live="movement" class="section">
 
                 <h2 class="section-title">
                     Stock Movement Analytics
@@ -3212,7 +3212,7 @@
                         </div>
 
                         <div class="analytics-description">
-                            Base units received
+                            Units received (all products)
                         </div>
 
                     </div>
@@ -3229,7 +3229,7 @@
                         </div>
 
                         <div class="analytics-description">
-                            Base units removed
+                            Units removed (all products)
                         </div>
 
                     </div>
@@ -3274,7 +3274,7 @@
                         </div>
 
                         <div class="analytics-description">
-                            Current base units
+                            Units on hand (all products)
                         </div>
 
                     </div>
@@ -3299,7 +3299,7 @@
                         </h2>
 
                         <p>
-                            Daily inventory movement measured in base units.
+                            Daily inventory movement counted in each product's own unit.
                         </p>
 
                     </div>
@@ -3415,7 +3415,7 @@
                                             title="
                                                 IN:
                                                 {{ format_qty($inValue) }}
-                                                base units
+                                                units
                                             "
                                         ></div>
 
@@ -3432,7 +3432,7 @@
                                             title="
                                                 OUT:
                                                 {{ format_qty($outValue) }}
-                                                base units
+                                                units
                                             "
                                         ></div>
 
@@ -3467,7 +3467,7 @@
             ================================================== --}}
 
             <div
-                class="card section"
+                class="card section" data-live="recent-transactions"
                 id="recent-transactions"
             >
 
@@ -3797,7 +3797,7 @@
             ================================================== --}}
 
             <div
-                class="card section"
+                class="card section" data-live="recent-transfers"
                 id="recent-transfers"
             >
 
@@ -3850,7 +3850,7 @@
                         <div class="transfer-summary-item">
 
                             <div class="transfer-summary-label">
-                                Transferred Base Units
+                                Total Moved
                             </div>
 
                             <div class="transfer-summary-value">
@@ -4024,7 +4024,7 @@
                                         {{ format_qty((float)
                                             $transfer->base_quantity) }}
 
-                                        base units
+                                        {{ $transfer->product?->counting_unit ?? 'units' }}
 
                                     </td>
 

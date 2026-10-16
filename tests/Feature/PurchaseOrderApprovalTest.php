@@ -175,6 +175,7 @@ class PurchaseOrderApprovalTest extends TestCase
         $productUnit = $this->makeProductUnit($product, $unit);
 
         $this->actingAs($staff)->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
             'product_id' => $product->id,
             'location_id' => $location->id,
             'product_unit_id' => $productUnit->id,

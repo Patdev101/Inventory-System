@@ -114,6 +114,7 @@ class LocationAccessTest extends TestCase
         $manager = $this->userAt($this->locA1, User::ROLE_MANAGER);
 
         $this->actingAs($manager)->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
             'product_id' => $this->stock['A2']['product']->id, 'location_id' => $this->locA2->id,
             'product_unit_id' => $this->stock['A2']['unit']->id, 'quantity' => 5,
         ])->assertForbidden();
@@ -238,6 +239,7 @@ class LocationAccessTest extends TestCase
         $managerOtherCompany = $this->userAt($this->locB1, User::ROLE_MANAGER);
 
         $this->actingAs($this->userAt($this->locA1))->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
             'product_id' => $this->stock['A1']['product']->id, 'location_id' => $this->locA1->id,
             'product_unit_id' => $this->stock['A1']['unit']->id, 'quantity' => 2,
         ])->assertSessionHasNoErrors();
@@ -246,5 +248,24 @@ class LocationAccessTest extends TestCase
         $this->assertSame(1, $managerHere->notifications()->count());
         $this->assertSame(0, $managerSibling->notifications()->count());
         $this->assertSame(0, $managerOtherCompany->notifications()->count());
+    }
+
+    public function test_only_people_at_the_destination_or_an_unassigned_admin_can_receive(): void
+    {
+        $this->assertTrue(User::canReceiveAt($this->userAt($this->locA2), $this->locA2->id));
+        $this->assertTrue(User::canReceiveAt($this->userAt($this->locA2, User::ROLE_MANAGER), $this->locA2->id));
+        $this->assertTrue(User::canReceiveAt($this->makeUser(User::ROLE_ADMIN), $this->locA2->id));
+
+        $this->assertFalse(User::canReceiveAt($this->userAt($this->locA1), $this->locA2->id));
+        $this->assertFalse(User::canReceiveAt($this->userAt($this->locA1, User::ROLE_ADMIN), $this->locA2->id), 'An admin assigned elsewhere');
+        $this->assertFalse(User::canReceiveAt($this->makeUser(User::ROLE_STAFF), $this->locA2->id), 'Staff with no location');
+
+        $manager = $this->userAt($this->locA1, User::ROLE_MANAGER);
+
+        $this->actingAs($manager)->post(route('inventory-transfers.store'), [
+            'destination_location_id' => $this->locA2->id,
+            'receiver_id' => $this->userAt($this->locA1, User::ROLE_ADMIN)->id,
+            'items' => [['source_inventory_id' => $this->stock['A1']['inventory']->id, 'product_unit_id' => $this->stock['A1']['unit']->id, 'quantity' => 1]],
+        ])->assertSessionHasErrors('receiver_id');
     }
 }

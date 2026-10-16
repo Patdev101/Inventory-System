@@ -97,7 +97,7 @@ class DashboardController extends Controller
         */
 
         $outOfStockInventories = Inventory::outOfStock()->with([
-            'product',
+            'product.baseUnit',
             'location',
             'productUnit.unitOfMeasure',
         ])
@@ -120,7 +120,7 @@ class DashboardController extends Controller
         */
 
         $criticalStockInventories = Inventory::criticalStock()->with([
-            'product',
+            'product.baseUnit',
             'location',
             'productUnit.unitOfMeasure',
         ])
@@ -146,7 +146,7 @@ class DashboardController extends Controller
         */
 
         $lowStockInventories = Inventory::lowStock()->with([
-            'product',
+            'product.baseUnit',
             'location',
             'productUnit.unitOfMeasure',
         ])
@@ -209,6 +209,31 @@ class DashboardController extends Controller
                 'detail' => 'At or below the reorder point.',
                 'action' => 'View items',
                 'url' => route('stock-alerts.index'),
+            ];
+        }
+
+        // Stock of products that expire: already expired, or expiring within the warning window.
+        $expiryBatches = app(\App\Services\ExpiryService::class)->expiringBatches();
+        $expiredCount = $expiryBatches->where('expired', true)->count();
+        $expiringCount = $expiryBatches->count() - $expiredCount;
+
+        if ($expiredCount > 0) {
+            $attentionItems[] = [
+                'tone' => 'danger',
+                'title' => $expiredCount . ' ' . ($expiredCount === 1 ? 'batch has' : 'batches have') . ' expired',
+                'detail' => 'Remove it from stock so it is not sold.',
+                'action' => 'View expired stock',
+                'url' => route('reports.expiring'),
+            ];
+        }
+
+        if ($expiringCount > 0) {
+            $attentionItems[] = [
+                'tone' => 'warning',
+                'title' => $expiringCount . ' ' . ($expiringCount === 1 ? 'batch expires' : 'batches expire') . ' within ' . config('stockalerts.expiry_warning_days', 30) . ' days',
+                'detail' => 'Sell or move it first.',
+                'action' => 'View expiring stock',
+                'url' => route('reports.expiring'),
             ];
         }
 
@@ -324,7 +349,7 @@ class DashboardController extends Controller
         */
 
         $recentTransactions = InventoryTransaction::with([
-            'product',
+            'product.baseUnit',
             'location',
             'productUnit.unitOfMeasure',
         ])
@@ -349,7 +374,7 @@ class DashboardController extends Controller
         */
 
         $recentTransfers = InventoryTransfer::with([
-            'product',
+            'product.baseUnit',
             'sourceInventory.location',
             'destinationInventory.location',
             'productUnit.unitOfMeasure',

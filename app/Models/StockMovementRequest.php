@@ -20,6 +20,7 @@ class StockMovementRequest extends Model
     public const TYPE_TRANSFER = 'transfer';
 
     protected $fillable = [
+        'expiry_date',
         'inventory_id',
         'product_id',
         'location_id',
@@ -36,6 +37,7 @@ class StockMovementRequest extends Model
     ];
 
     protected $casts = [
+        'expiry_date' => 'date',
         'quantity' => 'decimal:4',
         'reviewed_at' => 'datetime',
     ];

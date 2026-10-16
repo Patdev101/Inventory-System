@@ -325,7 +325,7 @@ class PurchaseOrderService
             );
         });
 
-        // Sent after the transaction commits — a mail failure should
+        // Sent after the transaction commits â€” a mail failure should
         // never roll back the status change, and the sync mailer
         // shouldn't run inside an open DB transaction.
         $this->sendOrderRequestEmailToSupplier($purchaseOrder, $userId);
@@ -335,10 +335,10 @@ class PurchaseOrderService
 
     /**
      * Automatically email the supplier a purchase order request the
-     * moment it's marked as ordered — the same PDF/log/activity trail as
+     * moment it's marked as ordered â€” the same PDF/log/activity trail as
      * the manual "Send Email" action, just fired without a user having
      * to click it. If the supplier has no email on file, this is skipped
-     * (logged, not thrown) — marking a PO as ordered must never fail
+     * (logged, not thrown) â€” marking a PO as ordered must never fail
      * just because a supplier's email is missing.
      */
     private function sendOrderRequestEmailToSupplier(
@@ -359,7 +359,7 @@ class PurchaseOrderService
         if (empty($toEmail)) {
             Log::info(
                 'Purchase order ' . $purchaseOrder->po_number
-                . ' marked as ordered but its supplier has no email on file — '
+                . ' marked as ordered but its supplier has no email on file â€” '
                 . 'automatic order-request email skipped.'
             );
 
@@ -565,12 +565,16 @@ class PurchaseOrderService
                     'quantity_received' => $newReceivedQuantity,
                 ]);
 
+                // Optional expiry date of the stock received on this line.
+                $expiryDate = $line['expiry_date'] ?? null;
+
                 $this->movementService->addStock(
                     productId: (int) $item->product_id,
                     locationId: (int) $purchaseOrder->location_id,
                     productUnitId: (int) $item->product_unit_id,
                     quantity: $quantityReceivedNow,
-                    reference: 'PO #' . $purchaseOrder->po_number
+                    reference: 'PO #' . $purchaseOrder->po_number,
+                    expiryDate: $expiryDate
                 );
 
                 $receivedLines[] = [

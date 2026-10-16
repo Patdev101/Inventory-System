@@ -692,7 +692,7 @@
                                 <br>
 
                                 <small>
-                                    Base unit
+                                    {{ $transaction->product?->counting_unit ?? 'units' }}
                                 </small>
 
                             </td>
@@ -726,6 +726,12 @@
                             <td class="reference">
 
                                 {{ $transaction->reference ?? '-' }}
+                @if ($transaction->notes)
+                    <small style="display: block; color: #64748b; white-space: normal;">Remarks: {{ $transaction->notes }}</small>
+                @endif
+                @if ($transaction->expiry_date)
+                    <small style="display: block; color: #92400e;">Expires: {{ $transaction->expiry_date->format('m/d/Y') }}</small>
+                @endif
 
                             </td>
 

@@ -169,7 +169,7 @@
 
                     {{ format_qty((float) $transaction->base_quantity) }}
 
-                    Base unit
+                    {{ $transaction->product?->counting_unit ?? 'units' }}
 
                 </td>
             </tr>

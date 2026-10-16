@@ -609,7 +609,7 @@
                             type="text" inputmode="decimal" autocomplete="off" data-numeric
                             id="entry-quantity"
                             min="0.0001"
-                            step="0.0001"
+                            step="0.1"
                             value="1"
                         >
 
@@ -627,7 +627,7 @@
                             type="text" inputmode="decimal" autocomplete="off" data-numeric
                             id="entry-price"
                             min="0"
-                            step="0.0001"
+                            step="0.01"
                             placeholder="0.00"
                         >
 
@@ -1936,7 +1936,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     conversion
                         ? `
                             <div class="unit-conversion">
-                                ${escapeHtml(conversion)}x base unit
+                                = ${escapeHtml(String(parseFloat(conversion)))} ${escapeHtml(product && product.base_unit ? product.base_unit.code : 'units')}
                             </div>
                         `
                         : ''
@@ -1960,7 +1960,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         name="items[${index}][quantity_ordered]"
                         value="${quantity}"
                         min="0.0001"
-                        step="0.0001"
+                        step="0.1"
                         class="line-quantity"
                         required
                     >
@@ -1977,7 +1977,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     name="items[${index}][unit_price]"
                     value="${formatQty(price)}"
                     min="0"
-                    step="0.0001"
+                    step="0.01"
                     class="line-price"
                     required
                 >

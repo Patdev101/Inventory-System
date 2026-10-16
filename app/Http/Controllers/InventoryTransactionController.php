@@ -18,7 +18,7 @@ class InventoryTransactionController extends Controller
     public function index(Request $request)
     {
         $query = InventoryTransaction::with([
-            'product',
+            'product.baseUnit',
             'location',
             'productUnit.unitOfMeasure',
             'inventory',
@@ -46,7 +46,7 @@ class InventoryTransactionController extends Controller
                 )
 
                 ->orWhereHas(
-                    'product',
+                    'product.baseUnit',
                     function ($productQuery) use ($search) {
 
                         $productQuery
@@ -174,7 +174,7 @@ class InventoryTransactionController extends Controller
         InventoryTransaction $transaction
     ) {
         $transaction->load([
-            'product',
+            'product.baseUnit',
             'location',
             'productUnit.unitOfMeasure',
             'inventory',

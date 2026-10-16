@@ -18,7 +18,7 @@ class StockAlertController extends Controller
         $severity = $request->query('severity');
 
         $alerts = StockAlert::with([
-            'inventory.product',
+            'inventory.product.baseUnit',
             'inventory.location',
             'acknowledgedBy',
         ])

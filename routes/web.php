@@ -296,6 +296,11 @@ Route::middleware('auth')->group(function () {
                 'lowStock',
             ])->name('low-stock');
 
+            Route::get('/expiring', [
+                ReportController::class,
+                'expiring',
+            ])->name('expiring');
+
             Route::get('/stock-movements/export', [
                 ReportController::class,
                 'exportStockMovements',

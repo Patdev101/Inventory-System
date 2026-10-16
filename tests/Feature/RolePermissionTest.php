@@ -86,6 +86,7 @@ class RolePermissionTest extends TestCase
 
         $this->actingAs($staff)
             ->patch(route('inventories.update', $inventory), [
+            'remarks' => 'Test movement',
                 'product_id' => $product->id,
                 'location_id' => $location->id,
                 'product_unit_id' => $productUnit->id,
@@ -125,6 +126,7 @@ class RolePermissionTest extends TestCase
         $inventory = $this->makeInventory($product, $location, $productUnit, 10, 10);
 
         $this->actingAs($staff)->patch(route('inventories.update', $inventory), [
+            'remarks' => 'Test movement',
             'product_id' => $product->id,
             'location_id' => $location->id,
             'product_unit_id' => $productUnit->id,

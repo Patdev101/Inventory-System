@@ -812,6 +812,10 @@
                             </th>
 
                             <th>
+                                Expiry Date
+                            </th>
+
+                            <th>
                                 Notes
                             </th>
 
@@ -965,7 +969,7 @@
 
 
                                     <input
-                                        type="text" inputmode="decimal" autocomplete="off" data-numeric
+                                        type="text" inputmode="decimal" autocomplete="off" data-numeric step="0.1"
                                         name="lines[{{ $index }}][quantity_received]"
                                         value="{{ old(
                                             "lines.$index.quantity_received",
@@ -973,8 +977,26 @@
                                         ) }}"
                                         min="0"
                                         max="{{ $remaining }}"
-                                        step="0.0001"
                                         class="po-receive-input"
+                                        @disabled($remaining <= 0)
+                                    >
+
+                                </td>
+
+
+                                {{-- ==================================================
+                                     EXPIRY DATE (optional)
+                                     ================================================== --}}
+
+                                <td>
+
+                                    {{-- Optional: stock given a date is warned about before it expires. --}}
+                                    <input
+                                        type="date"
+                                        name="lines[{{ $index }}][expiry_date]"
+                                        value="{{ old("lines.$index.expiry_date") }}"
+                                        class="po-receive-input"
+                                        title="Optional"
                                         @disabled($remaining <= 0)
                                     >
 
@@ -1005,7 +1027,7 @@
                             <tr>
 
                                 <td
-                                    colspan="7"
+                                    colspan="8"
                                     class="po-receive-empty"
                                 >
                                     No items were found on this purchase order.

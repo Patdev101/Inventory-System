@@ -18,7 +18,9 @@ class InventoryMovementService
         int $locationId,
         int $productUnitId,
         float $quantity,
-        ?string $reference = null
+        ?string $reference = null,
+        ?string $notes = null,
+        ?string $expiryDate = null
     ): Inventory {
         $product = Product::findOrFail($productId);
 
@@ -43,7 +45,9 @@ class InventoryMovementService
             $quantity,
             $movementBaseQuantity,
             $movementConversionFactor,
-            $reference
+            $reference,
+            $notes,
+            $expiryDate
         ) {
             $inventory = Inventory::where('product_id', $productId)
                 ->where('location_id', $locationId)
@@ -84,7 +88,9 @@ class InventoryMovementService
                 baseQuantity: $movementBaseQuantity,
                 productUnitId: $productUnit->id,
                 conversionFactor: $movementConversionFactor,
-                reference: $reference ?? 'Inventory addition'
+                reference: $reference ?? 'Inventory addition',
+                notes: $notes,
+                expiryDate: $expiryDate
             );
 
             return $inventory;
@@ -96,7 +102,9 @@ class InventoryMovementService
         int $productId,
         int $productUnitId,
         string $movementType,
-        float $quantity
+        float $quantity,
+        ?string $notes = null,
+        ?string $expiryDate = null
     ): Inventory {
         if (!in_array($movementType, ['in', 'out'], true)) {
             throw new \InvalidArgumentException(
@@ -135,7 +143,9 @@ class InventoryMovementService
             $movementType,
             $quantity,
             $movementBaseQuantity,
-            $movementConversionFactor
+            $movementConversionFactor,
+            $notes,
+            $expiryDate
         ) {
             $inventory = Inventory::whereKey($inventory->id)
                 ->lockForUpdate()
@@ -176,7 +186,9 @@ class InventoryMovementService
                 conversionFactor: $movementConversionFactor,
                 reference: $movementType === 'in'
                     ? 'Inventory stock added'
-                    : 'Inventory stock removed'
+                    : 'Inventory stock removed',
+                notes: $notes,
+                expiryDate: $expiryDate
             );
 
             return $inventory;
@@ -278,6 +290,9 @@ class InventoryMovementService
                     $sourceInventory
                 );
 
+            // The oldest stock leaves first; the transfer carries its expiry date.
+            $leavingExpiry = app(ExpiryService::class)->expiryOfStockLeaving($sourceInventory, (float) $baseQuantity);
+
             $sourceInventory->update([
                 'quantity' =>
                     $newSourceBaseQuantity /
@@ -323,6 +338,8 @@ class InventoryMovementService
 
                 'notes' => $notes,
 
+                'expiry_date' => $leavingExpiry,
+
                 'status' => 'completed',
             ]);
 
@@ -351,7 +368,8 @@ class InventoryMovementService
                     'Transfer #' . $transfer->id .
                     ' from ' .
                     $sourceInventory->location->name,
-                notes: $notes
+                notes: $notes,
+                expiryDate: $leavingExpiry
             );
 
             return $transfer;
@@ -428,6 +446,9 @@ class InventoryMovementService
                     $sourceInventory
                 );
 
+            // The oldest stock leaves first; the transfer carries its expiry date.
+            $leavingExpiry = app(ExpiryService::class)->expiryOfStockLeaving($sourceInventory, (float) $baseQuantity);
+
             $sourceInventory->update([
                 'quantity' =>
                     $newSourceBaseQuantity /
@@ -487,6 +508,8 @@ class InventoryMovementService
                     $reference ?? 'Inventory transfer',
 
                 'notes' => $notes,
+
+                'expiry_date' => $leavingExpiry,
 
                 'status' => 'pending',
 
@@ -669,7 +692,8 @@ class InventoryMovementService
                     $lockedTransfer->id .
                     ' receipt into ' .
                     $destinationInventory->location->name,
-                notes: $lockedTransfer->notes
+                notes: $lockedTransfer->notes,
+                expiryDate: $lockedTransfer->expiry_date?->toDateString()
             );
 
             /*
@@ -865,7 +889,8 @@ class InventoryMovementService
                         ' failed audit — ' .
                         'remaining stock returned to ' .
                         $sourceInventory->location->name,
-                    notes: $auditNotes
+                    notes: $auditNotes,
+                    expiryDate: $lockedTransfer->expiry_date?->toDateString()
                 );
             }
 
@@ -956,7 +981,8 @@ class InventoryMovementService
         ?int $productUnitId = null,
         ?float $conversionFactor = null,
         ?string $reference = null,
-        ?string $notes = null
+        ?string $notes = null,
+        ?string $expiryDate = null
     ): InventoryTransaction {
         if (!in_array($type, ['in', 'out'], true)) {
             throw new \InvalidArgumentException(
@@ -1003,6 +1029,9 @@ class InventoryMovementService
             'conversion_factor' => $conversionFactor,
 
             'reference' => $reference,
+
+            // Only stock coming in carries an expiry date.
+            'expiry_date' => $type === 'in' ? $expiryDate : null,
 
             'notes' => $notes,
         ]);

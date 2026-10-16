@@ -19,6 +19,7 @@ class InventoryTransfer extends Model
     protected $table = 'inventory_transfers';
 
     protected $fillable = [
+        'expiry_date',
         'source_inventory_id',
         'destination_inventory_id',
         'product_id',
@@ -51,6 +52,7 @@ class InventoryTransfer extends Model
     ];
 
     protected $casts = [
+        'expiry_date' => 'date',
         'conversion_factor' => 'decimal:4',
         'quantity' => 'decimal:4',
         'base_quantity' => 'decimal:4',

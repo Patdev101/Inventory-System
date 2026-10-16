@@ -121,9 +121,38 @@
                 name="quantity"
                 value="{{ old('quantity') }}"
                 min="0.0001"
-                step="0.0001"
+                step="0.1"
                 required
             >
+        </div>
+
+        {{-- Remarks: why the stock is being added, kept on the transaction. --}}
+        <div class="form-group">
+            <label for="remarks">Remarks</label>
+
+            <textarea
+                id="remarks"
+                name="remarks"
+                rows="3"
+                maxlength="500"
+                required
+                placeholder="Why is this stock being added? e.g. opening stock, delivery received, returned by customer"
+            >{{ old('remarks') }}</textarea>
+        </div>
+
+        {{-- Expiry date: optional; stock given a date is warned about before it expires. --}}
+        <div class="form-group" id="expiry-group">
+            <label for="expiry_date">Expiry Date</label>
+
+            <input
+                type="date"
+                id="expiry_date"
+                name="expiry_date"
+                value="{{ old('expiry_date') }}"
+                style="max-width: 240px;"
+            >
+
+            <small style="display: block; margin-top: 6px;">Optional. Enter it if the stock has an expiry date, and you'll be warned before it expires.</small>
         </div>
 
 

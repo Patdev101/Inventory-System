@@ -109,7 +109,7 @@
         <div style="margin-top: 6px; color: #475569;">
             {{ format_qty((float) $transfer->base_quantity) }}
 
-            base units
+            {{ $transfer->product?->counting_unit ?? 'units' }}
         </div>
     </div>
 
@@ -548,10 +548,10 @@
                             type="text" inputmode="decimal" autocomplete="off" data-numeric
                             id="received_quantity"
                             name="received_quantity"
-                            value="{{ old('received_quantity', number_format($remainingQuantity, 4, '.', '')) }}"
+                            value="{{ old('received_quantity', format_qty($remainingQuantity)) }}"
                             min="0.0001"
                             max="{{ $remainingQuantity }}"
-                            step="0.0001"
+                            step="0.1"
                             required
                             style="flex: 1; min-width: 0;"
                         >
@@ -758,7 +758,7 @@
     <strong>
         {{ format_qty($transferredBaseQuantity) }}
 
-        base units.
+        {{ $transfer->product?->counting_unit ?? 'units' }}.
     </strong>
 
     @if ($receivedQuantity > 0)
@@ -778,7 +778,7 @@
 
             <strong>
                 {{ format_qty($receivedBaseQuantity) }}
-                base units.
+                {{ $transfer->product?->counting_unit ?? 'units' }}.
             </strong>
 
         </div>

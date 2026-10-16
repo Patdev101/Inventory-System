@@ -56,7 +56,7 @@ class InventoryTransferTest extends TestCase
 
         $this->actingAs($manager)->post(route('inventory-transfers.store'), [
             'destination_location_id' => $locationB->id,
-            'receiver_id' => $receiver->id,
+            'receiver_id' => tap($receiver)->update(['location_id' => $locationB->id])->id,
             'receiver_role' => User::ROLE_STAFF,
             'items' => [
                 [
@@ -118,7 +118,7 @@ class InventoryTransferTest extends TestCase
 
         $this->actingAs($manager)->post(route('inventory-transfers.store'), [
             'destination_location_id' => $locationB->id,
-            'receiver_id' => $receiver->id,
+            'receiver_id' => tap($receiver)->update(['location_id' => $locationB->id])->id,
             'receiver_role' => User::ROLE_STAFF,
             'items' => [
                 [
@@ -156,7 +156,7 @@ class InventoryTransferTest extends TestCase
 
         $this->actingAs($manager)->post(route('inventory-transfers.store'), [
             'destination_location_id' => $locationB->id,
-            'receiver_id' => $receiver->id,
+            'receiver_id' => tap($receiver)->update(['location_id' => $locationB->id])->id,
             'receiver_role' => User::ROLE_STAFF,
             'items' => [
                 [
@@ -218,7 +218,7 @@ class InventoryTransferTest extends TestCase
 
         $this->actingAs($staff)->post(route('inventory-transfers.store'), [
             'destination_location_id' => $locationB->id,
-            'receiver_id' => $receiver->id,
+            'receiver_id' => tap($receiver)->update(['location_id' => $locationB->id])->id,
             'receiver_role' => User::ROLE_STAFF,
             'items' => [
                 [

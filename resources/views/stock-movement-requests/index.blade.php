@@ -49,6 +49,10 @@
             {{ $stockMovementRequest->productUnit?->unitOfMeasure?->name ?? '' }}
         </p>
 
+        @if ($stockMovementRequest->notes)
+            <p class="stock-request-remarks"><strong>Remarks:</strong> {{ $stockMovementRequest->notes }}</p>
+        @endif
+
         @if ($stockMovementRequest->status === 'rejected' && $stockMovementRequest->rejection_reason)
             <p class="stock-request-reason">Reason: {{ $stockMovementRequest->rejection_reason }}</p>
         @endif

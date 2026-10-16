@@ -227,6 +227,7 @@ class QaRegressionTest extends TestCase
 
         $this->actingAs($this->makeUser(User::ROLE_MANAGER))
             ->put(route('inventories.update', $a['inventory']), [
+            'remarks' => 'Test movement',
                 'product_id' => $productB->id, 'location_id' => $a['location']->id,
                 'product_unit_id' => $bCase->id, 'movement_type' => 'in', 'quantity' => 1,
             ])->assertSessionHasErrors('product_unit_id');
@@ -242,6 +243,7 @@ class QaRegressionTest extends TestCase
 
         $this->actingAs($this->makeUser(User::ROLE_MANAGER))
             ->put(route('inventories.update', $a['inventory']), [
+            'remarks' => 'Test movement',
                 'product_id' => $b->id, 'location_id' => $a['location']->id,
                 'product_unit_id' => $bUnit->id, 'movement_type' => 'in', 'quantity' => 5,
             ]);
@@ -259,6 +261,7 @@ class QaRegressionTest extends TestCase
             ->assertOk()->assertDontSee('Warehouse B');
 
         $this->actingAs($manager)->put(route('inventories.update', $a['inventory']), [
+            'remarks' => 'Test movement',
             'location_id' => $warehouseB->id, 'product_unit_id' => $a['unit']->id,
             'movement_type' => 'in', 'quantity' => 5,
         ]);
@@ -392,7 +395,7 @@ class QaRegressionTest extends TestCase
     {
         $s = $this->stocked(10);
         $destination = $this->makeLocation($s['company'], ['name' => 'Branch 2']);
-        $receiver = $this->makeUser(User::ROLE_STAFF);
+        $receiver = $this->makeUser(User::ROLE_STAFF, ['location_id' => $destination->id]);
 
         $this->actingAs($this->makeUser(User::ROLE_MANAGER))->post(route('inventory-transfers.store'), [
             'destination_location_id' => $destination->id,
@@ -414,6 +417,7 @@ class QaRegressionTest extends TestCase
         $staff = $this->makeUser(User::ROLE_STAFF);
 
         $this->actingAs($staff)->post(route('inventories.store'), [
+            'remarks' => 'Test movement',
             'product_id' => $s['product']->id, 'location_id' => $s['location']->id,
             'product_unit_id' => $s['unit']->id, 'quantity' => 1,
         ])->assertRedirect();

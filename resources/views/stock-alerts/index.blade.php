@@ -151,7 +151,7 @@
             </div>
 
             <p class="stock-alert-quantities">
-                Current: <strong>{{ format_qty((float) $alert->base_quantity) }}</strong> base units
+                Current: <strong>{{ format_qty((float) $alert->base_quantity) }}</strong> {{ $alert->inventory?->product?->counting_unit ?? 'units' }}
                 &middot;
                 Reorder point: <strong>{{ format_qty((float) $alert->reorder_point) }}</strong>
             </p>

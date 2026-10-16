@@ -344,6 +344,9 @@
      INVENTORY TABLE
 ========================= --}}
 
+{{-- Swapped in place every few seconds by the layout's live refresh (no page reload). --}}
+<div data-live="inventory-list">
+
 @if ($inventories->count())
 
     <div class="inventory-summary">
@@ -572,7 +575,7 @@
                         </span>
 
                         <div class="base-unit">
-                            Base units
+                            {{ $inventory->product?->counting_unit ?? 'units' }}
                         </div>
 
                     </td>
@@ -688,5 +691,6 @@
     </div>
 
 @endif
+</div>
 
 @endsection

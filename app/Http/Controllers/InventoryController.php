@@ -53,7 +53,7 @@ public function index(Request $request)
 $search = trim($request->input('search', ''));
 
     $query = Inventory::with([
-        'product',
+        'product.baseUnit',
         'location',
         'productUnit.unitOfMeasure',
     ]);
@@ -139,8 +139,22 @@ public function store(Request $request)
             'gt:0',
             'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
         ],
+
+        // Why the stock is being added or taken out (delivery, damaged, expired...).
+        'remarks' => [
+            'required',
+            'string',
+            'max:500',
+        ],
+
+        // Optional: stock given an expiry date is warned about before it expires.
+        'expiry_date' => [
+            'nullable',
+            'date',
+        ],
     ], [
         'product_unit_id.exists' => 'The selected unit does not belong to this product.',
+        'remarks.required' => 'Please say why this stock is being added.',
     ]);
 
     UserAccess::assertLocation($validated['location_id']);
@@ -158,6 +172,8 @@ public function store(Request $request)
             'product_unit_id' => $validated['product_unit_id'],
             'type' => 'in',
             'quantity' => $validated['quantity'],
+            'notes' => $validated['remarks'],
+            'expiry_date' => $validated['expiry_date'] ?? null,
             'status' => StockMovementRequest::STATUS_PENDING,
             'requested_by' => $request->user()->id,
         ]);
@@ -176,7 +192,9 @@ public function store(Request $request)
         (int) $validated['product_id'],
         (int) $validated['location_id'],
         (int) $validated['product_unit_id'],
-        (float) $validated['quantity']
+        (float) $validated['quantity'],
+        notes: $validated['remarks'],
+        expiryDate: $validated['expiry_date'] ?? null
     );
 
     return redirect()
@@ -193,7 +211,7 @@ public function store(Request $request)
 public function show(Inventory $inventory)
 {
     $inventory->load([
-        'product',
+        'product.baseUnit',
         'location.company',
         'productUnit.unitOfMeasure',
         'transactions.product',
@@ -237,9 +255,17 @@ public function show(Inventory $inventory)
         ? $inventory->product->productUnits()->with('unitOfMeasure')->get()
         : collect();
 
+    // Deliveries still on hand with their expiry dates (products that expire only).
+
+    $expiryBatches = $inventory->transactions()->whereNotNull('expiry_date')->exists()
+
+        ? app(\App\Services\ExpiryService::class)->remainingBatches($inventory)
+
+        : collect();
+
     return view(
         'inventories.show',
-        compact('inventory', 'transactions', 'transferCandidates', 'productUnits')
+        compact('inventory', 'transactions', 'transferCandidates', 'productUnits', 'expiryBatches')
     );
 }
 
@@ -249,7 +275,7 @@ public function show(Inventory $inventory)
 public function edit(Inventory $inventory)
 {
     $inventory->load([
-        'product',
+        'product.baseUnit',
         'location.company',
         'productUnit.unitOfMeasure',
     ]);
@@ -305,8 +331,22 @@ public function update(
             'gt:0',
             'max:' . Inventory::MAX_MOVEMENT_QUANTITY,
         ],
+
+        // Why the stock is being added or taken out (delivery, damaged, expired...).
+        'remarks' => [
+            'required',
+            'string',
+            'max:500',
+        ],
+
+        // Optional: stock given an expiry date is warned about before it expires.
+        'expiry_date' => [
+            'nullable',
+            'date',
+        ],
     ], [
         'product_unit_id.exists' => 'The selected unit does not belong to this product.',
+        'remarks.required' => 'Please say why this stock is being added or removed.',
     ]);
 
     // A stock record's product and location are fixed; never take them
@@ -322,6 +362,8 @@ public function update(
             'product_unit_id' => $validated['product_unit_id'],
             'type' => $validated['movement_type'],
             'quantity' => $validated['quantity'],
+            'notes' => $validated['remarks'],
+            'expiry_date' => $validated['expiry_date'] ?? null,
             'status' => StockMovementRequest::STATUS_PENDING,
             'requested_by' => $request->user()->id,
         ]);
@@ -341,7 +383,9 @@ public function update(
         (int) $validated['product_id'],
         (int) $validated['product_unit_id'],
         $validated['movement_type'],
-        (float) $validated['quantity']
+        (float) $validated['quantity'],
+        $validated['remarks'],
+        $validated['movement_type'] === 'in' ? ($validated['expiry_date'] ?? null) : null
     );
 
     return redirect()
@@ -540,5 +584,4 @@ private function notifyApprovers(StockMovementRequest $stockMovementRequest): vo
             }
         });
 }
-
 }
